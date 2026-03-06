@@ -1,7 +1,7 @@
 """
 Navigation lights classification module.
 
-Classifies vessel status based on navigation lights.
+Classifies vessel type based on navigation lights.
 Implements COLREGS rules for night signals.
 """
 
@@ -19,6 +19,18 @@ except ImportError:
     from config import Config
 
 
+# COLREGS vessel types (МППСС-72)
+class VesselType:
+    """Vessel types according to COLREGS 72."""
+    MECHANICAL = "Судно с механическим двигателем"
+    SAIL = "Парусное судно"
+    FISHING = "Судно, занятое ловом рыбы"
+    NUC = "Судно, лишённое возможности управляться"
+    RAM = "Судно, ограниченное в возможности маневрировать"
+    CBD = "Судно, стеснённое своей осадкой"
+    TRAWLING = "Судно, занимающееся тралением"
+
+
 @dataclass
 class LightDetection:
     """Represents a detected navigation light."""
@@ -32,10 +44,10 @@ class LightDetection:
 
 
 @dataclass
-class VesselLightStatus:
-    """Classified vessel status from navigation lights."""
+class VesselTypeResult:
+    """Classified vessel type from navigation lights."""
 
-    status: str  # e.g., 'NUC', 'RAM', 'CBD', 'Fishing', 'Trawling'
+    vessel_type: str  # Vessel type according to COLREGS 72
     bbox: List[int]  # Combined bounding box for the group
     color: Tuple[int, int, int]  # BGR color for visualization
     lights: List[LightDetection]  # Constituent lights
@@ -43,40 +55,40 @@ class VesselLightStatus:
 
     @property
     def is_known_signal(self) -> bool:
-        return self.status not in ["Unknown", "Неизвестный сигнал"]
+        return self.vessel_type not in ["Unknown", "Неизвестный сигнал"]
 
 
-# COLREGS navigation lights rules
+# COLREGS navigation lights rules → vessel types
 LIGHTS_RULES = {
     # NUC: Not Under Command - Red, Red
-    "NUC": {
+    VesselType.NUC: {
         "sequence": [1, 1],
         "color": (0, 255, 0),  # Green
-        "description": "Not Under Command",
+        "description": "Not Under Command - 2 red lights",
     },
     # RAM: Restricted Ability to Maneuver - Red, White, Red
-    "RAM": {
+    VesselType.RAM: {
         "sequence": [1, 0, 1],
         "color": (0, 255, 0),
-        "description": "Restricted Ability to Maneuver",
+        "description": "Restricted Ability to Maneuver - red-white-red",
     },
     # Fishing (not trawling) - Red, White
-    "Fishing": {
+    VesselType.FISHING: {
         "sequence": [1, 0],
         "color": (0, 255, 0),
-        "description": "Engaged in Fishing",
+        "description": "Engaged in Fishing - red-white",
     },
     # Trawling - Green, White
-    "Trawling": {
+    VesselType.TRAWLING: {
         "sequence": [2, 0],
         "color": (0, 255, 0),
-        "description": "Engaged in Trawling",
+        "description": "Engaged in Trawling - green-white",
     },
     # CBD: Constrained by Draft - Red, Red, Red
-    "CBD": {
+    VesselType.CBD: {
         "sequence": [1, 1, 1],
         "color": (0, 255, 0),
-        "description": "Constrained by Draft",
+        "description": "Constrained by Draft - 3 red lights",
     },
 }
 
@@ -121,27 +133,27 @@ def _group_by_mast(
 
 def _classify_group(
     group: List[LightDetection], rules: dict = LIGHTS_RULES
-) -> VesselLightStatus:
+) -> VesselTypeResult:
     """
-    Classify vessel status based on light sequence.
+    Classify vessel type based on light sequence.
 
     Args:
         group: List of lights on same mast.
         rules: Dictionary of COLREGS rules.
 
     Returns:
-        VesselLightStatus with classification result.
+        VesselTypeResult with classification result.
     """
     # Get sequence (top to bottom)
     sequence = [d.class_id for d in group]
 
     # Match against rules
-    status_name = "Unknown"
+    vessel_type = "Unknown"
     color = (0, 0, 255)  # Red (unknown)
 
-    for name, rule in rules.items():
+    for vtype, rule in rules.items():
         if sequence == rule["sequence"]:
-            status_name = name
+            vessel_type = vtype
             color = rule["color"]
             break
 
@@ -151,8 +163,8 @@ def _classify_group(
     x2_max = max(d.bbox[2] for d in group)
     y2_max = max(d.bbox[3] for d in group)
 
-    return VesselLightStatus(
-        status=status_name,
+    return VesselTypeResult(
+        vessel_type=vessel_type,
         bbox=[x1_min, y1_min, x2_max, y2_max],
         color=color,
         lights=group,
@@ -168,13 +180,13 @@ def classify_lights(
     x_tolerance: Optional[int] = None,
     return_detections: bool = False,
 ) -> Union[
-    List[VesselLightStatus], Tuple[List[VesselLightStatus], List[LightDetection]]
+    List[VesselTypeResult], Tuple[List[VesselTypeResult], List[LightDetection]]
 ]:
     """
-    Classify vessel status based on navigation lights.
+    Classify vessel type based on navigation lights.
 
     This function is pipeline-agnostic - accepts any image and returns
-    classified vessel statuses based on COLREGS navigation light signals.
+    classified vessel types based on COLREGS navigation light signals.
 
     Args:
         image: Input image as file path or numpy array (BGR).
@@ -185,7 +197,7 @@ def classify_lights(
         return_detections: If True, also return raw detections.
 
     Returns:
-        List of VesselLightStatus objects. If return_detections=True,
+        List of VesselTypeResult objects. If return_detections=True,
         also returns list of raw LightDetection objects.
 
     Example:
@@ -243,16 +255,16 @@ def classify_lights(
 
     # Group by mast and classify
     groups = _group_by_mast(detections, x_tolerance or config.grouping_x_tolerance)
-    statuses = [_classify_group(group) for group in groups]
+    vessel_types = [_classify_group(group) for group in groups]
 
     if return_detections:
-        return statuses, detections
-    return statuses
+        return vessel_types, detections
+    return vessel_types
 
 
 def draw_lights_results(
     image: np.ndarray,
-    statuses: List[VesselLightStatus],
+    vessel_types: List[VesselTypeResult],
     thickness: int = 2,
     font_scale: float = 0.6,
 ) -> np.ndarray:
@@ -261,7 +273,7 @@ def draw_lights_results(
 
     Args:
         image: Input image (BGR).
-        statuses: List of VesselLightStatus objects.
+        vessel_types: List of VesselTypeResult objects.
         thickness: Box line thickness.
         font_scale: Font scale for labels.
 
@@ -270,14 +282,14 @@ def draw_lights_results(
     """
     output = image.copy()
 
-    for status in statuses:
-        x1, y1, x2, y2 = status.bbox
+    for vtype in vessel_types:
+        x1, y1, x2, y2 = vtype.bbox
 
         # Draw bounding box
-        cv2.rectangle(output, (x1, y1), (x2, y2), status.color, thickness)
+        cv2.rectangle(output, (x1, y1), (x2, y2), vtype.color, thickness)
 
         # Draw label
-        label = f"{status.status}"
+        label = f"{vtype.vessel_type}"
         (label_w, label_h), baseline = cv2.getTextSize(
             label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness
         )
@@ -287,7 +299,7 @@ def draw_lights_results(
             output,
             (x1, y1 - label_h - baseline - 5),
             (x1 + label_w, y1),
-            status.color,
+            vtype.color,
             -1,
         )
 
