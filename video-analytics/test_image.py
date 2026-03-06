@@ -1,19 +1,15 @@
 #!/usr/bin/env python3
 """Test script for the video analytics pipeline using image.png"""
 
-import sys
 import cv2
 from pathlib import Path
 
-# Add current directory to path
-sys.path.insert(0, str(Path(__file__).parent))
-
-from config import Config
-from boat_detector import detect_and_crop_boats
 from binary_classifier import BinaryClassifier
-from day_shapes import classify_day_shapes, VesselType
-from lights import classify_lights
+from boat_detector import detect_and_crop_boats
+from config import Config
+from day_shapes import VesselType, classify_day_shapes
 from infrared_detector import detect_infrared_objects
+from lights import classify_lights
 from pipeline import VideoAnalyticsPipeline
 
 def main():

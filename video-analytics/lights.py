@@ -13,22 +13,19 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
-try:
-    from .config import Config
-except ImportError:
-    from config import Config
+from config import Config
 
 
-# COLREGS vessel types (МППСС-72)
+# COLREGS vessel types
 class VesselType:
     """Vessel types according to COLREGS 72."""
-    MECHANICAL = "Судно с механическим двигателем"
-    SAIL = "Парусное судно"
-    FISHING = "Судно, занятое ловом рыбы"
-    NUC = "Судно, лишённое возможности управляться"
-    RAM = "Судно, ограниченное в возможности маневрировать"
-    CBD = "Судно, стеснённое своей осадкой"
-    TRAWLING = "Судно, занимающееся тралением"
+    MECHANICAL = "MECH"
+    SAIL = "SAIL"
+    FISHING = "FISH"
+    NUC = "NUC"
+    RAM = "RAM"
+    CBD = "CBD"
+    TRAWLING = "TRAWL"
 
 
 @dataclass

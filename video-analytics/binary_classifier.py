@@ -16,10 +16,7 @@ import torch.nn as nn
 from PIL import Image
 from torchvision import models, transforms
 
-try:
-    from .config import Config
-except ImportError:
-    from config import Config
+from config import Config
 
 
 @dataclass
