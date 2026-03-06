@@ -15,16 +15,16 @@ try:
     from .binary_classifier import BinaryClassifier, ClassificationResult
     from .boat_detector import BoatDetection, detect_and_crop_boats
     from .config import Config
-    from .day_shapes import VesselStatus, classify_day_shapes
+    from .day_shapes import VesselTypeResult, classify_day_shapes
     from .infrared_detector import InfraredDetection, detect_infrared_objects
-    from .lights import VesselLightStatus, classify_lights
+    from .lights import VesselTypeResult as LightsVesselTypeResult, classify_lights
 except ImportError:
     from binary_classifier import BinaryClassifier, ClassificationResult
     from boat_detector import BoatDetection, detect_and_crop_boats
     from config import Config
-    from day_shapes import VesselStatus, classify_day_shapes
+    from day_shapes import VesselTypeResult, classify_day_shapes
     from infrared_detector import InfraredDetection, detect_infrared_objects
-    from lights import VesselLightStatus, classify_lights
+    from lights import VesselTypeResult as LightsVesselTypeResult, classify_lights
 
 
 @dataclass
@@ -36,18 +36,42 @@ class BoatAnalysisResult:
     bbox: List[int]
     detection_confidence: float
 
-    # Binary classification
-    is_sailboat: bool = False
-    sailboat_confidence: float = 0.0
+    # Binary classification → vessel type (COLREGS 72)
+    # 'sailboat' → VesselType.SAIL, 'not_sailboat' → VesselType.MECHANICAL
+    vessel_type: str = "Судно с механическим двигателем"
+    vessel_type_confidence: float = 0.0
 
-    # Day shapes (if applicable)
-    day_shapes_status: Optional[VesselStatus] = None
+    # Day shapes (if applicable) - overrides vessel type if detected
+    day_shapes_status: Optional[VesselTypeResult] = None
 
-    # Lights (if applicable, night mode)
-    lights_status: Optional[VesselLightStatus] = None
+    # Lights (if applicable, night mode) - overrides vessel type if detected
+    lights_status: Optional[LightsVesselTypeResult] = None
 
     # Infrared detections (night mode)
     infrared_detections: List[InfraredDetection] = field(default_factory=list)
+
+    @property
+    def final_vessel_type(self) -> str:
+        """
+        Get final vessel type according to COLREGS 72 priority.
+
+        Priority (highest to lowest):
+        1. NUC (Not Under Command)
+        2. RAM (Restricted Ability to Maneuver)
+        3. CBD (Constrained by Draft)
+        4. Fishing/Trawling
+        5. Sail / Mechanical (from binary classifier)
+        """
+        # Day shapes have highest priority
+        if self.day_shapes_status and self.day_shapes_status.is_known_signal:
+            return self.day_shapes_status.vessel_type
+
+        # Lights classification for night mode
+        if self.lights_status and self.lights_status.is_known_signal:
+            return self.lights_status.vessel_type
+
+        # Default from binary classifier
+        return self.vessel_type
 
 
 @dataclass
@@ -63,11 +87,11 @@ class PipelineResult:
     # Infrared detections (night mode, full image)
     infrared_detections: List[InfraredDetection] = field(default_factory=list)
 
-    # Day shapes (full image)
-    day_shapes_statuses: List[VesselStatus] = field(default_factory=list)
+    # Day shapes (full image) - vessel types from day shapes
+    day_shapes_statuses: List[VesselTypeResult] = field(default_factory=list)
 
-    # Lights (full image, night mode)
-    lights_statuses: List[VesselLightStatus] = field(default_factory=list)
+    # Lights (full image, night mode) - vessel types from lights
+    lights_statuses: List[LightsVesselTypeResult] = field(default_factory=list)
 
     @property
     def boat_count(self) -> int:
@@ -75,7 +99,13 @@ class PipelineResult:
 
     @property
     def sailboat_count(self) -> int:
-        return sum(1 for b in self.boats if b.is_sailboat)
+        """Count sailboats (for backward compatibility)."""
+        return sum(1 for b in self.boats if b.vessel_type == "Парусное судно")
+
+    @property
+    def mechanical_count(self) -> int:
+        """Count mechanical vessels (default type)."""
+        return sum(1 for b in self.boats if b.final_vessel_type == "Судно с механическим двигателем")
 
 
 class VideoAnalyticsPipeline:
@@ -172,7 +202,7 @@ class VideoAnalyticsPipeline:
             image=image, config=self.config, confidence_threshold=boat_confidence
         )
 
-        # Step 2: Binary classification for each boat
+        # Step 2: Binary classification for each boat → vessel type
         boats = []
         for i, boat_det in enumerate(boat_detections):
             boat_result = BoatAnalysisResult(
@@ -182,15 +212,19 @@ class VideoAnalyticsPipeline:
                 detection_confidence=boat_det.confidence,
             )
 
-            # Classify as sailboat or not
+            # Binary classifier: sailboat vs not_sailboat → vessel type
             if not skip_classification:
                 class_result = self.classifier.classify(boat_det.crop)
-                boat_result.is_sailboat = class_result.is_sailboat
-                boat_result.sailboat_confidence = (
-                    class_result.sailboat_probability * 100
-                    if class_result.is_sailboat
-                    else class_result.not_sailboat_probability * 100
-                )
+                if class_result.is_sailboat:
+                    boat_result.vessel_type = "Парусное судно"
+                    boat_result.vessel_type_confidence = (
+                        class_result.sailboat_probability * 100
+                    )
+                else:
+                    boat_result.vessel_type = "Судно с механическим двигателем"
+                    boat_result.vessel_type_confidence = (
+                        class_result.not_sailboat_probability * 100
+                    )
 
             boats.append(boat_result)
 

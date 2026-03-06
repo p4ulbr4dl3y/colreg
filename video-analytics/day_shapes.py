@@ -1,7 +1,7 @@
 """
 Day-shapes classification module.
 
-Classifies vessel status based on day shapes (balls, cones, diamonds, cylinders).
+Classifies vessel type based on day shapes (balls, cones, diamonds, cylinders).
 Implements COLREGS rules for day signals.
 """
 
@@ -19,6 +19,18 @@ except ImportError:
     from config import Config
 
 
+# COLREGS vessel types (МППСС-72)
+class VesselType:
+    """Vessel types according to COLREGS 72."""
+    MECHANICAL = "Судно с механическим двигателем"
+    SAIL = "Парусное судно"
+    FISHING = "Судно, занятое ловом рыбы"
+    NUC = "Судно, лишённое возможности управляться"
+    RAM = "Судно, ограниченное в возможности маневрировать"
+    CBD = "Судно, стеснённое своей осадкой"
+    TRAWLING = "Судно, занимающееся тралением"
+
+
 @dataclass
 class DayShapeDetection:
     """Represents a detected day shape."""
@@ -32,10 +44,10 @@ class DayShapeDetection:
 
 
 @dataclass
-class VesselStatus:
-    """Classified vessel status from day shapes."""
+class VesselTypeResult:
+    """Classified vessel type from day shapes."""
 
-    status: str  # e.g., 'NUC', 'RAM', 'CBD', 'Fishing/Trawling'
+    vessel_type: str  # Vessel type according to COLREGS 72
     bbox: List[int]  # Combined bounding box for the group
     color: Tuple[int, int, int]  # BGR color for visualization
     shapes: List[DayShapeDetection]  # Constituent shapes
@@ -43,34 +55,34 @@ class VesselStatus:
 
     @property
     def is_known_signal(self) -> bool:
-        return self.status not in ["Unknown", "Неизвестный сигнал"]
+        return self.vessel_type not in ["Unknown", "Неизвестный сигнал"]
 
 
-# COLREGS day shapes rules
+# COLREGS day shapes rules → vessel types
 DAY_SHAPES_RULES = {
     # NUC: Not Under Command - Ball, Ball
-    "NUC": {
+    VesselType.NUC: {
         "sequence": [0, 0],
         "color": (0, 255, 0),  # Green
-        "description": "Not Under Command",
+        "description": "Not Under Command - 2 balls",
     },
     # RAM: Restricted Ability to Maneuver - Ball, Diamond, Ball
-    "RAM": {
+    VesselType.RAM: {
         "sequence": [0, 3, 0],
         "color": (0, 255, 0),
-        "description": "Restricted Ability to Maneuver",
+        "description": "Restricted Ability to Maneuver - ball-diamond-ball",
     },
     # CBD: Constrained by Draft - Cylinder
-    "CBD": {
+    VesselType.CBD: {
         "sequence": [4],
         "color": (0, 255, 0),
-        "description": "Constrained by Draft",
+        "description": "Constrained by Draft - cylinder",
     },
-    # Fishing/Trawling - Cone down, Cone up (apexes together)
-    "Fishing/Trawling": {
+    # Fishing - Cone down, Cone up (apexes together)
+    VesselType.FISHING: {
         "sequence": [2, 1],  # cone_down, cone_up
         "color": (0, 255, 0),
-        "description": "Engaged in Fishing",
+        "description": "Engaged in Fishing - cones apexes together",
     },
 }
 
@@ -115,27 +127,27 @@ def _group_by_mast(
 
 def _classify_group(
     group: List[DayShapeDetection], rules: dict = DAY_SHAPES_RULES
-) -> VesselStatus:
+) -> VesselTypeResult:
     """
-    Classify vessel status based on shape sequence.
+    Classify vessel type based on shape sequence.
 
     Args:
         group: List of shapes on same mast.
         rules: Dictionary of COLREGS rules.
 
     Returns:
-        VesselStatus with classification result.
+        VesselTypeResult with classification result.
     """
     # Get sequence (top to bottom)
     sequence = [d.class_id for d in group]
 
     # Match against rules
-    status_name = "Unknown"
+    vessel_type = "Unknown"
     color = (0, 0, 255)  # Red (unknown)
 
-    for name, rule in rules.items():
+    for vtype, rule in rules.items():
         if sequence == rule["sequence"]:
-            status_name = name
+            vessel_type = vtype
             color = rule["color"]
             break
 
@@ -145,8 +157,8 @@ def _classify_group(
     x2_max = max(d.bbox[2] for d in group)
     y2_max = max(d.bbox[3] for d in group)
 
-    return VesselStatus(
-        status=status_name,
+    return VesselTypeResult(
+        vessel_type=vessel_type,
         bbox=[x1_min, y1_min, x2_max, y2_max],
         color=color,
         shapes=group,
@@ -161,12 +173,12 @@ def classify_day_shapes(
     model_path: Optional[Union[str, Path]] = None,
     x_tolerance: Optional[int] = None,
     return_detections: bool = False,
-) -> Union[List[VesselStatus], Tuple[List[VesselStatus], List[DayShapeDetection]]]:
+) -> Union[List[VesselTypeResult], Tuple[List[VesselTypeResult], List[DayShapeDetection]]]:
     """
-    Classify vessel status based on day shapes.
+    Classify vessel type based on day shapes.
 
     This function is pipeline-agnostic - accepts any image and returns
-    classified vessel statuses based on COLREGS day signals.
+    classified vessel types based on COLREGS day signals.
 
     Args:
         image: Input image as file path or numpy array (BGR).
@@ -177,14 +189,14 @@ def classify_day_shapes(
         return_detections: If True, also return raw detections.
 
     Returns:
-        List of VesselStatus objects. If return_detections=True,
+        List of VesselTypeResult objects. If return_detections=True,
         also returns list of raw DayShapeDetection objects.
 
     Example:
         >>> image = cv2.imread('vessel.png')
-        >>> statuses = classify_day_shapes(image)
-        >>> for status in statuses:
-        ...     print(f"Vessel status: {status.status}")
+        >>> types = classify_day_shapes(image)
+        >>> for vtype in types:
+        ...     print(f"Vessel type: {vtype.vessel_type}")
     """
     if config is None:
         config = Config()
@@ -246,7 +258,7 @@ def classify_day_shapes(
 
 def draw_day_shapes_results(
     image: np.ndarray,
-    statuses: List[VesselStatus],
+    vessel_types: List[VesselTypeResult],
     thickness: int = 2,
     font_scale: float = 0.6,
 ) -> np.ndarray:
@@ -255,7 +267,7 @@ def draw_day_shapes_results(
 
     Args:
         image: Input image (BGR).
-        statuses: List of VesselStatus objects.
+        vessel_types: List of VesselTypeResult objects.
         thickness: Box line thickness.
         font_scale: Font scale for labels.
 
@@ -264,14 +276,14 @@ def draw_day_shapes_results(
     """
     output = image.copy()
 
-    for status in statuses:
-        x1, y1, x2, y2 = status.bbox
+    for vtype in vessel_types:
+        x1, y1, x2, y2 = vtype.bbox
 
         # Draw bounding box
-        cv2.rectangle(output, (x1, y1), (x2, y2), status.color, thickness)
+        cv2.rectangle(output, (x1, y1), (x2, y2), vtype.color, thickness)
 
         # Draw label
-        label = f"{status.status}"
+        label = f"{vtype.vessel_type}"
         (label_w, label_h), baseline = cv2.getTextSize(
             label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness
         )
@@ -281,7 +293,7 @@ def draw_day_shapes_results(
             output,
             (x1, y1 - label_h - baseline - 5),
             (x1 + label_w, y1),
-            status.color,
+            vtype.color,
             -1,
         )
 
