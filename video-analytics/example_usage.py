@@ -5,11 +5,9 @@ Example usage of the universal video analytics pipeline.
 Demonstrates both individual module usage and full pipeline processing.
 """
 
+import cv2
 from pathlib import Path
 
-import cv2
-
-# Import pipeline modules
 from pipeline import (
     BinaryClassifier,
     Config,
@@ -113,15 +111,14 @@ def example_full_pipeline():
     for boat in result.boats:
         print(f"\n   Boat #{boat.boat_id}:")
         print(f"      Detection conf: {boat.detection_confidence:.2f}")
-        print(
-            f"      Is sailboat: {boat.is_sailboat} ({boat.sailboat_confidence:.1f}%)"
-        )
+        print(f"      Vessel type: {boat.vessel_type} ({boat.vessel_type_confidence:.1f}%)")
+        print(f"      Final vessel type: {boat.final_vessel_type}")
         if boat.day_shapes_status:
-            print(f"      Day shapes: {boat.day_shapes_status.status}")
+            print(f"      Day shapes: {boat.day_shapes_status.vessel_type}")
 
     print(f"\n   Day shapes on full image:")
     for status in result.day_shapes_statuses:
-        print(f"      - {status.status}")
+        print(f"      - {status.vessel_type}")
 
     # Process in night mode
     print("\n🌙 Night Mode Processing:")
@@ -134,16 +131,15 @@ def example_full_pipeline():
     for boat in result.boats:
         print(f"\n   Boat #{boat.boat_id}:")
         print(f"      Detection conf: {boat.detection_confidence:.2f}")
-        print(
-            f"      Is sailboat: {boat.is_sailboat} ({boat.sailboat_confidence:.1f}%)"
-        )
+        print(f"      Vessel type: {boat.vessel_type} ({boat.vessel_type_confidence:.1f}%)")
+        print(f"      Final vessel type: {boat.final_vessel_type}")
         if boat.lights_status:
-            print(f"      Lights: {boat.lights_status.status}")
+            print(f"      Lights: {boat.lights_status.vessel_type}")
 
     print(f"\n   Infrared detections: {len(result.infrared_detections)}")
     print(f"   Lights on full image: {len(result.lights_statuses)}")
     for status in result.lights_statuses:
-        print(f"      - {status.status} (sequence: {status.sequence})")
+        print(f"      - {status.vessel_type} (sequence: {status.sequence})")
 
 
 def example_custom_configuration():
@@ -161,7 +157,7 @@ def example_custom_configuration():
     pipeline = VideoAnalyticsPipeline(config=config)
 
     # Or use custom config with individual functions
-    image_path = "test_image.jpg"
+    image_path = "image.png"
 
     boat_detections = detect_and_crop_boats(
         image=image_path, config=config, confidence_threshold=0.8  # Override config

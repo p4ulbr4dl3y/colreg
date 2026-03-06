@@ -12,10 +12,7 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
-try:
-    from .config import Config
-except ImportError:
-    from config import Config
+from config import Config
 
 
 @dataclass
