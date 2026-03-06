@@ -1,0 +1,51 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.so
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.install.lock
+.venv/
+
+# Environments
+.env
+venv/
+env/
+ENV/
+
+# Development or build artifacts
+*.pyc
+.coverage
+.mypy_cache/
+.pytest_cache/
+
+# Editors and IDEs
+# VS Code
+.vscode/
+# PyCharm
+.idea/
+
+# Operating System files
+.DS_Store
+.Trash
+Thumbs.db
+
+# Secrets and credentials (if applicable)
+*.env
+*.key
+*.pem
