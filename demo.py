@@ -36,11 +36,6 @@ def main():
         help="Path to visible image for night mode",
     )
     parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="Save intermediate debug images",
-    )
-    parser.add_argument(
         "--bbox-scale",
         type=float,
         nargs=4,
@@ -63,7 +58,7 @@ def main():
         print(f"  Visible image: {vis_path}")
 
         result = pipeline.process_night(
-            ir_path, vis_path, save_debug=args.debug, bbox_scale=tuple(args.bbox_scale)
+            ir_path, vis_path, bbox_scale=tuple(args.bbox_scale)
         )
     else:
         # Day mode: single image
