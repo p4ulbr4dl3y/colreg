@@ -16,7 +16,8 @@ from boat_detector import BoatDetection, detect_and_crop_boats
 from config import Config
 from day_shapes import VesselTypeResult, classify_day_shapes
 from infrared_detector import InfraredDetection, detect_infrared_objects
-from lights import VesselTypeResult as LightsVesselTypeResult, classify_lights
+from lights import VesselTypeResult as LightsVesselTypeResult
+from lights import classify_lights
 
 
 @dataclass
@@ -97,7 +98,11 @@ class PipelineResult:
     @property
     def mechanical_count(self) -> int:
         """Count mechanical vessels (default type)."""
-        return sum(1 for b in self.boats if b.final_vessel_type == "Судно с механическим двигателем")
+        return sum(
+            1
+            for b in self.boats
+            if b.final_vessel_type == "Судно с механическим двигателем"
+        )
 
 
 class VideoAnalyticsPipeline:
@@ -364,7 +369,9 @@ class VideoAnalyticsPipeline:
             ir_crop = ir_image[exp_y1:exp_y2, exp_x1:exp_x2]
 
             # Crop from visible image with adjusted bbox for lights classification
-            adj_crop = visible_image[adj_bbox[1]:adj_bbox[3], adj_bbox[0]:adj_bbox[2]]
+            adj_crop = visible_image[
+                adj_bbox[1] : adj_bbox[3], adj_bbox[0] : adj_bbox[2]
+            ]
 
             boat_result = BoatAnalysisResult(
                 boat_id=i,

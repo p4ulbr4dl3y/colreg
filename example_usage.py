@@ -5,8 +5,9 @@ Example usage of the universal video analytics pipeline.
 Demonstrates both individual module usage and full pipeline processing.
 """
 
-import cv2
 from pathlib import Path
+
+import cv2
 
 from pipeline import (
     BinaryClassifier,
@@ -111,7 +112,9 @@ def example_full_pipeline():
     for boat in result.boats:
         print(f"\n   Boat #{boat.boat_id}:")
         print(f"      Detection conf: {boat.detection_confidence:.2f}")
-        print(f"      Vessel type: {boat.vessel_type} ({boat.vessel_type_confidence:.1f}%)")
+        print(
+            f"      Vessel type: {boat.vessel_type} ({boat.vessel_type_confidence:.1f}%)"
+        )
         print(f"      Final vessel type: {boat.final_vessel_type}")
         if boat.day_shapes_status:
             print(f"      Day shapes: {boat.day_shapes_status.vessel_type}")
@@ -131,7 +134,9 @@ def example_full_pipeline():
     for boat in result.boats:
         print(f"\n   Boat #{boat.boat_id}:")
         print(f"      Detection conf: {boat.detection_confidence:.2f}")
-        print(f"      Vessel type: {boat.vessel_type} ({boat.vessel_type_confidence:.1f}%)")
+        print(
+            f"      Vessel type: {boat.vessel_type} ({boat.vessel_type_confidence:.1f}%)"
+        )
         print(f"      Final vessel type: {boat.final_vessel_type}")
         if boat.lights_status:
             print(f"      Lights: {boat.lights_status.vessel_type}")
