@@ -259,8 +259,6 @@ class VideoAnalyticsPipeline:
         skip_classification: bool = False,
         bbox_offset: Tuple[int, int] = (0, 0),
         bbox_scale: Tuple[float, float, float, float] = (1.0, 1.5, 1.0, 1.0),
-        save_debug: bool = False,
-        debug_dir: Optional[str] = None,
     ) -> PipelineResult:
         """
         Process night mode with separate IR and visible images.
@@ -278,8 +276,6 @@ class VideoAnalyticsPipeline:
                 IR and visible sensors. Default (0, 0).
             bbox_scale: Scale factors for bbox expansion (left, top, right, bottom).
                 Default (1.0, 1.5, 1.0, 1.0) - expands top by 50% to capture mast/lights.
-            save_debug: If True, save intermediate results for debugging.
-            debug_dir: Directory for debug images. Uses 'debug/' if None.
 
         Returns:
             PipelineResult with analysis results.
@@ -292,9 +288,6 @@ class VideoAnalyticsPipeline:
             ...     if boat.lights_status:
             ...         print(f"Boat {boat.boat_id}: {boat.lights_status.vessel_type}")
         """
-        import os
-        from datetime import datetime
-
         # Load images if paths
         if isinstance(ir_image, (str, Path)):
             ir_cv = cv2.imread(str(ir_image))
@@ -312,26 +305,10 @@ class VideoAnalyticsPipeline:
         elif not isinstance(visible_image, np.ndarray):
             raise TypeError("Visible image must be a file path or numpy array")
 
-        # Setup debug directory
-        if save_debug:
-            debug_dir = debug_dir or "debug"
-            os.makedirs(debug_dir, exist_ok=True)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            debug_prefix = f"{debug_dir}/night_{timestamp}"
-
         # Step 1: Detect boats on IR image
         boat_detections = detect_and_crop_boats(
             image=ir_image, config=self.config, confidence_threshold=boat_confidence
         )
-
-        # Save IR detection result
-        if save_debug:
-            ir_vis = ir_image.copy()
-            for det in boat_detections:
-                x1, y1, x2, y2 = det.bbox
-                cv2.rectangle(ir_vis, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.imwrite(f"{debug_prefix}_ir_detection.png", ir_vis)
-            print(f"Saved IR detection: {debug_prefix}_ir_detection.png")
 
         # Step 2: Binary classification on IR crops, lights on visible crops
         boats = []
@@ -394,11 +371,6 @@ class VideoAnalyticsPipeline:
                         class_result.not_sailboat_probability * 100
                     )
 
-            # Save debug crops
-            if save_debug:
-                cv2.imwrite(f"{debug_prefix}_boat{i}_ir_crop.png", ir_crop)
-                cv2.imwrite(f"{debug_prefix}_boat{i}_vis_crop.png", adj_crop)
-
             boats.append(boat_result)
 
         # Initialize result
@@ -410,32 +382,11 @@ class VideoAnalyticsPipeline:
         )
 
         # Step 4: Lights classification on visible crops
-        if save_debug:
-            lights_vis = visible_image.copy()
-
         for boat in boats:
             if boat.crop.size > 0:
                 lights_statuses = classify_lights(image=boat.crop, config=self.config)
                 if lights_statuses:
                     boat.lights_status = lights_statuses[0]
-
-                    # Draw lights detection for debug
-                    if save_debug:
-                        x1, y1, x2, y2 = boat.bbox
-                        cv2.rectangle(lights_vis, (x1, y1), (x2, y2), (0, 255, 255), 2)
-                        cv2.putText(
-                            lights_vis,
-                            boat.lights_status.vessel_type,
-                            (x1, y1 - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            0.6,
-                            (0, 255, 255),
-                            2,
-                        )
-
-        if save_debug:
-            cv2.imwrite(f"{debug_prefix}_lights_detection.png", lights_vis)
-            print(f"Saved lights detection: {debug_prefix}_lights_detection.png")
 
         return result
 
