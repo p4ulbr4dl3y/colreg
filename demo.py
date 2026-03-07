@@ -5,6 +5,7 @@ Demonstrates vessel detection and classification on a single image.
 """
 
 import argparse
+
 import cv2
 
 from pipeline import VideoAnalyticsPipeline, draw_results
@@ -85,7 +86,9 @@ def main():
     for boat in result.boats:
         print(f"\n  Boat #{boat.boat_id}:")
         print(f"    Bbox: {boat.bbox}")
-        print(f"    Binary classifier: {boat.vessel_type} ({boat.vessel_type_confidence:.1f}%)")
+        print(
+            f"    Binary classifier: {boat.vessel_type} ({boat.vessel_type_confidence:.1f}%)"
+        )
 
         if boat.day_shapes_status:
             print(f"    Day shapes: {boat.day_shapes_status.vessel_type}")

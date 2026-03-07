@@ -19,6 +19,7 @@ from config import Config
 # COLREGS vessel types
 class VesselType:
     """Vessel types according to COLREGS 72."""
+
     MECHANICAL = "MECH"
     SAIL = "SAIL"
     FISHING = "FISH"
@@ -176,9 +177,7 @@ def classify_lights(
     model_path: Optional[Union[str, Path]] = None,
     x_tolerance: Optional[int] = None,
     return_detections: bool = False,
-) -> Union[
-    List[VesselTypeResult], Tuple[List[VesselTypeResult], List[LightDetection]]
-]:
+) -> Union[List[VesselTypeResult], Tuple[List[VesselTypeResult], List[LightDetection]]]:
     """
     Classify vessel type based on navigation lights.
 

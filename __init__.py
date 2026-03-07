@@ -21,10 +21,12 @@ COLREGS 72 Vessel Types (МППСС-72):
 from .binary_classifier import BinaryClassifier
 from .boat_detector import detect_and_crop_boats
 from .config import Config
-from .day_shapes import classify_day_shapes, VesselType, VesselTypeResult
+from .day_shapes import VesselType, VesselTypeResult, classify_day_shapes
 from .infrared_detector import detect_infrared_objects
-from .lights import classify_lights, VesselType as LightsVesselType, VesselTypeResult as LightsVesselTypeResult
-from .pipeline import VideoAnalyticsPipeline, BoatAnalysisResult, PipelineResult
+from .lights import VesselType as LightsVesselType
+from .lights import VesselTypeResult as LightsVesselTypeResult
+from .lights import classify_lights
+from .pipeline import BoatAnalysisResult, PipelineResult, VideoAnalyticsPipeline
 
 __all__ = [
     "Config",
