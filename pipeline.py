@@ -390,51 +390,6 @@ class VideoAnalyticsPipeline:
 
         return result
 
-    def process_batch(
-        self,
-        images: List[Union[str, Path, np.ndarray]],
-        is_night: bool = False,
-        **kwargs,
-    ) -> List[PipelineResult]:
-        """
-        Process multiple images.
-
-        Args:
-            images: List of images (paths or numpy arrays).
-            is_night: Night mode flag.
-            **kwargs: Additional arguments passed to process().
-
-        Returns:
-            List of PipelineResult objects.
-        """
-        return [self.process(image, is_night, **kwargs) for image in images]
-
-    def detect_boats_only(
-        self, image: Union[str, Path, np.ndarray]
-    ) -> List[BoatDetection]:
-        """
-        Detect boats without full pipeline processing.
-
-        Args:
-            image: Input image.
-
-        Returns:
-            List of BoatDetection objects.
-        """
-        return detect_and_crop_boats(image, config=self.config)
-
-    def classify_boat_crop(self, crop: np.ndarray) -> ClassificationResult:
-        """
-        Classify a single boat crop.
-
-        Args:
-            crop: Boat crop image (BGR).
-
-        Returns:
-            ClassificationResult.
-        """
-        return self.classifier.classify(crop)
-
 
 def draw_results(
     image: np.ndarray,
