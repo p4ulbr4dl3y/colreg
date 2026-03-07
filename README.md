@@ -5,7 +5,7 @@ Universal, modular video analytics pipeline for maritime navigation (COLREGS com
 ## Structure
 
 ```
-pipeline/
+colreg/
 ├── __init__.py           # Package exports
 ├── config.py             # Centralized configuration
 ├── boat_detector.py      # Boat detection & cropping (YOLO)
@@ -14,7 +14,6 @@ pipeline/
 ├── day_shapes.py         # Day shapes classification
 ├── lights.py             # Navigation lights classification
 ├── pipeline.py           # Main orchestrator
-├── example_usage.py      # Usage examples
 └── README.md             # This file
 ```
 
@@ -40,7 +39,7 @@ print(f"Boats: {result.boat_count}, Sailboats: {result.sailboat_count}")
 result = pipeline.process(image, is_night=True)
 for boat in result.boats:
     if boat.lights_status:
-        print(f"Boat status: {boat.lights_status.status}")
+        print(f"Boat status: {boat.lights_status.vessel_type}")
 ```
 
 ### Individual Modules
@@ -73,12 +72,12 @@ for boat in boats:
 # Day shapes
 statuses = classify_day_shapes(image)
 for status in statuses:
-    print(f"Vessel status: {status.status}")
+    print(f"Vessel type: {status.vessel_type}")
 
 # Lights (night)
 lights = classify_lights(image)
 for light in lights:
-    print(f"Light status: {light.status}")
+    print(f"Vessel type: {light.vessel_type}")
 
 # Infrared (night)
 ir_dets = detect_infrared_objects(image)
@@ -151,7 +150,7 @@ classify_day_shapes(
     model_path: Optional[Union[str, Path]] = None,
     x_tolerance: Optional[int] = None,
     return_detections: bool = False
-) -> List[VesselStatus]
+) -> List[VesselTypeResult]
 ```
 
 ### Lights
@@ -164,7 +163,7 @@ classify_lights(
     model_path: Optional[Union[str, Path]] = None,
     x_tolerance: Optional[int] = None,
     return_detections: bool = False
-) -> List[VesselLightStatus]
+) -> List[VesselTypeResult]
 ```
 
 ### Infrared Detector
@@ -196,6 +195,33 @@ result = pipeline.process(
 ) -> PipelineResult
 ```
 
+### Night Mode with Separate IR and Visible Images
+
+```python
+pipeline = VideoAnalyticsPipeline()
+
+result = pipeline.process_night(
+    ir_image: Union[str, Path, np.ndarray],
+    visible_image: Union[str, Path, np.ndarray],
+    boat_confidence: Optional[float] = None,
+    classifier_confidence: Optional[float] = None,
+    skip_classification: bool = False,
+    bbox_offset: Tuple[int, int] = (0, 0),
+    bbox_scale: Tuple[float, float, float, float] = (1.0, 1.5, 1.0, 1.0)
+) -> PipelineResult
+```
+
+### Visualization
+
+```python
+from pipeline import draw_results
+
+pipeline = VideoAnalyticsPipeline()
+result = pipeline.process(image, is_night=False)
+vis = draw_results(image, result)
+cv2.imwrite('output.png', vis)
+```
+
 ## COLREGS Rules Implemented
 
 ### Day Shapes
@@ -204,7 +230,7 @@ result = pipeline.process(
 | NUC | Ball, Ball | Not Under Command |
 | RAM | Ball, Diamond, Ball | Restricted Ability to Maneuver |
 | CBD | Cylinder | Constrained by Draft |
-| Fishing/Trawling | Cone down, Cone up | Engaged in Fishing |
+| Fishing | Cone down, Cone up | Engaged in Fishing |
 
 ### Navigation Lights
 | Status | Sequence | Description |
@@ -229,11 +255,3 @@ result = pipeline.process(
 ```bash
 pip install ultralytics torch torchvision opencv-python pillow numpy
 ```
-
-## Example
-
-See `example_usage.py` for complete examples:
-- Individual module usage
-- Full pipeline processing
-- Custom configuration
-- Video stream processing

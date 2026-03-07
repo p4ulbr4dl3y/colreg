@@ -191,20 +191,3 @@ class BinaryClassifier:
             sailboat_probability=sailboat_prob,
             not_sailboat_probability=not_sailboat_prob,
         )
-
-    def classify_batch(
-        self, images: List[Union[str, Path, np.ndarray, Image.Image]]
-    ) -> List[ClassificationResult]:
-        """
-        Classify multiple images efficiently.
-
-        Args:
-            images: List of images (any supported format).
-
-        Returns:
-            List of ClassificationResult objects.
-        """
-        results = []
-        for image in images:
-            results.append(self.classify(image))
-        return results
