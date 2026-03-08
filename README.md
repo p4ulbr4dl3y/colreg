@@ -1,257 +1,198 @@
-# Video Analytics Pipeline
+# COLREG — Видеоаналитика для морской навигации
 
-Universal, modular video analytics pipeline for maritime navigation (COLREGS compliance).
+Конвейер видеоаналитики для автоматической классификации судов согласно **МППСС-72** (Международные правила предупреждения столкновений судов в море).
 
-## Structure
+## Возможности
 
+- 🚤 **Обнаружение судов** — детектирование судов на изображениях с помощью YOLO
+- ⛵ **Бинарная классификация** — определение типа: парусное или механическое
+- 🌙 **Ночной режим** — инфракрасное обнаружение объектов
+- 🔷 **Дневные фигуры** — классификация по дневным сигналам (шары, конусы, ромбы, цилиндры)
+- 🚦 **Навигационные огни** — классификация по ночным сигналам (красный, белый, зелёный)
+
+## Типы судов МППСС-72
+
+Система распознаёт следующие типы судов:
+
+| Тип | Описание | Сигнал (дневной) | Сигнал (ночной) |
+|-----|----------|------------------|-----------------|
+| **NUC** | Не может управляться | 2 шара | 2 красных огня |
+| **RAM** | Ограничено в возможности маневрировать | шар-ромб-шар | красный-белый-красный |
+| **CBD** | Стеснено своей осадкой | цилиндр | 3 красных огня |
+| **FISHING** | Занято ловом рыбы | 2 конуса вершинами вместе | красный-белый |
+| **TRAWLING** | Занято тралением | — | зелёный-белый |
+| **SAIL** | Парусное судно | — | — |
+| **MECH** | Механическое судно | — | — |
+
+## Установка
+
+```bash
+pip install -r requirements.txt
 ```
-colreg/
-├── __init__.py           # Package exports
-├── config.py             # Centralized configuration
-├── boat_detector.py      # Boat detection & cropping (YOLO)
-├── binary_classifier.py  # Sailboat classification
-├── infrared_detector.py  # Night/infrared detection
-├── day_shapes.py         # Day shapes classification
-├── lights.py             # Navigation lights classification
-├── pipeline.py           # Main orchestrator
-└── README.md             # This file
-```
 
-## Quick Start
+### Зависимости
 
-### Full Pipeline
+- Python 3.8+
+- OpenCV
+- PyTorch
+- Ultralytics YOLO
+- Pillow
+- NumPy
+
+## Быстрый старт
+
+### Дневной режим
 
 ```python
 import cv2
-from pipeline import VideoAnalyticsPipeline
+from pipeline import VideoAnalyticsPipeline, draw_results
 
-# Initialize
+# Инициализация конвейера
 pipeline = VideoAnalyticsPipeline()
 
-# Load image
+# Загрузка изображения
 image = cv2.imread('frame.jpg')
 
-# Day mode
+# Анализ (дневной режим)
 result = pipeline.process(image, is_night=False)
-print(f"Boats: {result.boat_count}, Sailboats: {result.sailboat_count}")
 
-# Night mode
-result = pipeline.process(image, is_night=True)
+# Визуализация результатов
+vis = draw_results(image, result)
+cv2.imwrite('output.png', vis)
+
+# Вывод информации
+print(f"Обнаружено судов: {result.boat_count}")
 for boat in result.boats:
-    if boat.lights_status:
-        print(f"Boat status: {boat.lights_status.vessel_type}")
+    print(f"Судно {boat.boat_id}: тип = {boat.final_vessel_type}")
 ```
 
-### Individual Modules
-
-All modules work independently:
+### Ночной режим
 
 ```python
 import cv2
-from pipeline import (
-    detect_and_crop_boats,
-    BinaryClassifier,
-    classify_day_shapes,
-    classify_lights,
-    detect_infrared_objects
-)
+from pipeline import VideoAnalyticsPipeline, draw_results
 
-image = cv2.imread('frame.jpg')
+pipeline = VideoAnalyticsPipeline()
 
-# Boat detection
-boats = detect_and_crop_boats(image)
-for boat in boats:
-    print(f"Boat detected: {boat.confidence:.2f}")
+# Загрузка ИК и видимого изображений
+ir_image = cv2.imread('thermal_frame.png')
+visible_image = cv2.imread('visible_frame.png')
 
-# Binary classifier (reuse instance)
-classifier = BinaryClassifier()
-for boat in boats:
-    result = classifier.classify(boat.crop)
-    print(f"{result.predicted_class}: {result.confidence:.1f}%")
+# Анализ (ночной режим)
+result = pipeline.process_night(ir_image, visible_image)
 
-# Day shapes
-statuses = classify_day_shapes(image)
-for status in statuses:
-    print(f"Vessel type: {status.vessel_type}")
-
-# Lights (night)
-lights = classify_lights(image)
-for light in lights:
-    print(f"Vessel type: {light.vessel_type}")
-
-# Infrared (night)
-ir_dets = detect_infrared_objects(image)
-for det in ir_dets:
-    print(f"IR object: {det.class_name}")
+# Визуализация
+vis = draw_results(ir_image, result)
+cv2.imwrite('output_night.png', vis)
 ```
 
-## Features
+## Модульное использование
 
-- **Pipeline-agnostic**: All functions work independently
-- **Flexible input**: Accept file paths or numpy arrays
-- **Configurable**: Override thresholds, paths, parameters
-- **Type-safe**: Full type hints and dataclasses
-- **No side effects**: Functions don't save files unless explicitly requested
+Все функции конвейера доступны отдельно для автономного использования:
 
-## Configuration
+### Обнаружение и кадрирование судов
 
 ```python
-from pipeline import Config
+from boat_detector import detect_and_crop_boats
+
+image = cv2.imread('scene.jpg')
+detections = detect_and_crop_boats(image)
+
+for det in detections:
+    print(f"Судно: уверенность = {det.confidence:.2f}, размер = {det.width}x{det.height}")
+```
+
+### Бинарная классификация
+
+```python
+from binary_classifier import BinaryClassifier
+
+classifier = BinaryClassifier()
+result = classifier.classify('boat_crop.jpg')
+
+print(f"Тип: {result.predicted_class}, уверенность: {result.confidence:.1f}%")
+```
+
+### Классификация дневных фигур
+
+```python
+from day_shapes import classify_day_shapes
+
+image = cv2.imread('vessel.png')
+types = classify_day_shapes(image)
+
+for vtype in types:
+    print(f"Тип судна: {vtype.vessel_type}")
+```
+
+### Классификация навигационных огней
+
+```python
+from lights import classify_lights
+
+image = cv2.imread('night_vessel.png')
+types = classify_lights(image)
+
+for vtype in types:
+    print(f"Тип судна: {vtype.vessel_type}")
+```
+
+### Инфракрасное обнаружение
+
+```python
+from infrared_detector import detect_infrared_objects
+
+image = cv2.imread('thermal_scene.png')
+detections = detect_infrared_objects(image)
+
+for det in detections:
+    print(f"Объект: {det.class_name}, уверенность: {det.confidence:.2f}")
+```
+
+## Конфигурация
+
+Конфигурация определяется в классе `Config`:
+
+```python
+from config import Config
 
 config = Config()
 
-# Override defaults
-config.boat_detector.confidence_threshold = 0.7
-config.lights.confidence_threshold = 0.6
-config.grouping_x_tolerance = 50  # For mast grouping
+# Пути к моделям
+config.boat_detector.path = "models/yolo11n.pt"
+config.binary_classifier.path = "models/binary-classifier.pth"
+config.infrared_detector.path = "models/infrared.pt"
+config.day_shapes.path = "models/day-shapes.pt"
+config.lights.path = "models/lights.pt"
 
-# Use in pipeline
-pipeline = VideoAnalyticsPipeline(config=config)
-
-# Or in individual functions
-boats = detect_and_crop_boats(image, config=config)
+# Пороги уверенности
+config.boat_detector.confidence_threshold = 0.5
+config.infrared_detector.confidence_threshold = 0.25
 ```
 
-## API Reference
+## Структура проекта
 
-### Boat Detector
-
-```python
-detect_and_crop_boats(
-    image: Union[str, Path, np.ndarray],
-    config: Optional[Config] = None,
-    confidence_threshold: Optional[float] = None,
-    class_id: Optional[int] = None,
-    model_path: Optional[Union[str, Path]] = None
-) -> List[BoatDetection]
+```
+colreg/
+├── __init__.py              # Инициализация пакета
+├── config.py                # Конфигурация
+├── boat_detector.py         # Обнаружение судов (YOLO)
+├── binary_classifier.py     # Бинарная классификация (парусное/механическое)
+├── infrared_detector.py     # Инфракрасное обнаружение (ночной режим)
+├── day_shapes.py            # Классификация дневных фигур
+├── lights.py                # Классификация навигационных огней
+├── pipeline.py              # Главный конвейер анализа
+└── README.md                # Документация
 ```
 
-### Binary Classifier
+## Приоритет классификации
 
-```python
-classifier = BinaryClassifier(
-    model_path: Optional[Union[str, Path]] = None,
-    config: Optional[Config] = None,
-    device: Optional[str] = None
-)
+Итоговый тип судна определяется по приоритету (от высшего к низшему):
 
-result = classifier.classify(
-    image: Union[str, Path, np.ndarray, Image.Image]
-) -> ClassificationResult
-```
+1. **NUC** (Не может управляться)
+2. **RAM** (Ограничено в возможности маневрировать)
+3. **CBD** (Стеснено своей осадкой)
+4. **FISHING / TRAWLING** (Занято ловом рыбы / тралением)
+5. **SAIL / MECH** (Парусное / Механическое — от бинарного классификатора)
 
-### Day Shapes
-
-```python
-classify_day_shapes(
-    image: Union[str, Path, np.ndarray],
-    config: Optional[Config] = None,
-    confidence_threshold: Optional[float] = None,
-    model_path: Optional[Union[str, Path]] = None,
-    x_tolerance: Optional[int] = None,
-    return_detections: bool = False
-) -> List[VesselTypeResult]
-```
-
-### Lights
-
-```python
-classify_lights(
-    image: Union[str, Path, np.ndarray],
-    config: Optional[Config] = None,
-    confidence_threshold: Optional[float] = None,
-    model_path: Optional[Union[str, Path]] = None,
-    x_tolerance: Optional[int] = None,
-    return_detections: bool = False
-) -> List[VesselTypeResult]
-```
-
-### Infrared Detector
-
-```python
-detect_infrared_objects(
-    image: Union[str, Path, np.ndarray],
-    config: Optional[Config] = None,
-    confidence_threshold: Optional[float] = None,
-    model_path: Optional[Union[str, Path]] = None,
-    class_filter: Optional[List[int]] = None
-) -> List[InfraredDetection]
-```
-
-### Full Pipeline
-
-```python
-pipeline = VideoAnalyticsPipeline(
-    config: Optional[Config] = None,
-    classifier_device: Optional[str] = None
-)
-
-result = pipeline.process(
-    image: Union[str, Path, np.ndarray],
-    is_night: bool = False,
-    boat_confidence: Optional[float] = None,
-    classifier_confidence: Optional[float] = None,
-    skip_classification: bool = False
-) -> PipelineResult
-```
-
-### Night Mode with Separate IR and Visible Images
-
-```python
-pipeline = VideoAnalyticsPipeline()
-
-result = pipeline.process_night(
-    ir_image: Union[str, Path, np.ndarray],
-    visible_image: Union[str, Path, np.ndarray],
-    boat_confidence: Optional[float] = None,
-    classifier_confidence: Optional[float] = None,
-    skip_classification: bool = False,
-    bbox_offset: Tuple[int, int] = (0, 0),
-    bbox_scale: Tuple[float, float, float, float] = (1.0, 1.5, 1.0, 1.0)
-) -> PipelineResult
-```
-
-### Visualization
-
-```python
-from pipeline import draw_results
-
-pipeline = VideoAnalyticsPipeline()
-result = pipeline.process(image, is_night=False)
-vis = draw_results(image, result)
-cv2.imwrite('output.png', vis)
-```
-
-## COLREGS Rules Implemented
-
-### Day Shapes
-| Status | Sequence | Description |
-|--------|----------|-------------|
-| NUC | Ball, Ball | Not Under Command |
-| RAM | Ball, Diamond, Ball | Restricted Ability to Maneuver |
-| CBD | Cylinder | Constrained by Draft |
-| Fishing | Cone down, Cone up | Engaged in Fishing |
-
-### Navigation Lights
-| Status | Sequence | Description |
-|--------|----------|-------------|
-| NUC | Red, Red | Not Under Command |
-| RAM | Red, White, Red | Restricted Ability to Maneuver |
-| CBD | Red, Red, Red | Constrained by Draft |
-| Fishing | Red, White | Engaged in Fishing |
-| Trawling | Green, White | Engaged in Trawling |
-
-## Requirements
-
-- Python 3.8+
-- ultralytics (YOLO)
-- torch, torchvision
-- opencv-python
-- PIL/Pillow
-- numpy
-
-## Installation
-
-```bash
-pip install ultralytics torch torchvision opencv-python pillow numpy
-```
+Дневные фигуры и навигационные огни имеют приоритет над бинарной классификацией.

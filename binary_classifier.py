@@ -1,8 +1,8 @@
 """
-Binary classifier module for sailboat detection.
+Модуль бинарной классификации для обнаружения парусных судов.
 
-Classifies boat crops as sailboat or not sailboat.
-Works independently of the pipeline - accepts any image.
+Классифицирует вырезанные изображения судов как парусные или непарусные.
+Работает независимо от конвейера — принимает любое изображение.
 """
 
 from dataclasses import dataclass
@@ -21,12 +21,12 @@ from config import Config
 
 @dataclass
 class ClassificationResult:
-    """Result of binary classification."""
+    """Результат бинарной классификации."""
 
-    predicted_class: str  # 'sailboat' or 'not_sailboat'
-    confidence: float  # Confidence percentage (0-100)
-    sailboat_probability: float  # Probability of being sailboat (0-1)
-    not_sailboat_probability: float  # Probability of not being sailboat (0-1)
+    predicted_class: str  # 'sailboat' или 'not_sailboat'
+    confidence: float  # Уверенность в процентах (0-100)
+    sailboat_probability: float  # Вероятность быть парусным (0-1)
+    not_sailboat_probability: float  # Вероятность быть непарусным (0-1)
 
     @property
     def is_sailboat(self) -> bool:
@@ -35,16 +35,16 @@ class ClassificationResult:
 
 class BinaryClassifier:
     """
-    Binary classifier for sailboat detection.
+    Бинарный классификатор для обнаружения парусных судов.
 
-    This class is pipeline-agnostic - load once, use multiple times
-    on any image without pipeline dependencies.
+    Этот класс не зависит от конвейера — загрузите один раз, используйте многократно
+    на любых изображениях без зависимостей от конвейера.
 
-    Example:
+    Пример:
         >>> classifier = BinaryClassifier()
         >>> result = classifier.classify('boat_crop.jpg')
         >>> if result.is_sailboat:
-        ...     print(f"Sailboat detected: {result.confidence:.1f}%")
+        ...     print(f"Обнаружено парусное судно: {result.confidence:.1f}%")
     """
 
     def __init__(
@@ -54,16 +54,16 @@ class BinaryClassifier:
         device: Optional[str] = None,
     ):
         """
-        Initialize the binary classifier.
+        Инициализировать бинарный классификатор.
 
         Args:
-            model_path: Path to model weights (.pth file).
-            config: Configuration object. Uses default if None.
-            device: Device to run inference on ('cuda', 'cpu', or None for auto).
+            model_path: Путь к весам модели (.pth файл).
+            config: Объект конфигурации. Используется по умолчанию, если None.
+            device: Устройство для инференса ('cuda', 'cpu' или None для авто).
         """
         self.config = config or Config()
 
-        # Resolve model path
+        # Разрешить путь к модели
         if model_path is None:
             model_path = self.config.get_model_path("binary_classifier")
         else:
@@ -71,25 +71,25 @@ class BinaryClassifier:
             if not model_path.is_absolute():
                 model_path = self.config.base_dir / model_path
 
-        # Set device
+        # Установить устройство
         if device is None:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         else:
             self.device = torch.device(device)
 
-        # Load model
+        # Загрузить модель
         self.model, self.class_names = self._load_model(model_path)
 
-        # Create transform
+        # Создать трансформацию
         self.transform = self._create_transform()
 
     def _load_model(self, model_path: Path) -> tuple:
-        """Load trained EfficientNet model from checkpoint."""
+        """Загрузить обученную модель EfficientNet из контрольной точки."""
         checkpoint = torch.load(
             str(model_path), map_location=self.device, weights_only=False
         )
 
-        # Map EfficientNet versions
+        # Сопоставить версии EfficientNet
         model_variants = {
             "b0": models.efficientnet_b0,
             "b1": models.efficientnet_b1,
@@ -104,13 +104,13 @@ class BinaryClassifier:
         version = checkpoint.get("efficientnet_version", "b0")
         model = model_variants[version](weights=None)
 
-        # Replace classifier head
+        # Заменить головку классификатора
         num_features = model.classifier[1].in_features
         model.classifier = nn.Sequential(
             nn.Dropout(p=0.3, inplace=True), nn.Linear(num_features, 2)
         )
 
-        # Load weights
+        # Загрузить веса
         model.load_state_dict(checkpoint["model_state_dict"])
         model = model.to(self.device)
         model.eval()
@@ -120,7 +120,7 @@ class BinaryClassifier:
         return model, class_names
 
     def _create_transform(self) -> transforms.Compose:
-        """Create image transformation pipeline."""
+        """Создать конвейер трансформаций изображения."""
         return transforms.Compose(
             [
                 transforms.Resize(
@@ -143,41 +143,41 @@ class BinaryClassifier:
         return_probabilities: bool = True,
     ) -> ClassificationResult:
         """
-        Classify a single image.
+        Классифицировать одно изображение.
 
         Args:
-            image: Input image as file path, numpy array (BGR), or PIL Image (RGB).
-            return_probabilities: Whether to include all class probabilities.
+            image: Входное изображение как путь к файлу, numpy массив (BGR) или PIL Image (RGB).
+            return_probabilities: Включать ли все вероятности классов.
 
         Returns:
-            ClassificationResult with predicted class and confidence.
+            ClassificationResult с предсказанным классом и уверенностью.
 
-        Example:
+        Пример:
             >>> crop = cv2.imread('boat_crop.jpg')
             >>> result = classifier.classify(crop)
             >>> print(f"{result.predicted_class}: {result.confidence:.1f}%")
         """
-        # Load and convert image
+        # Загрузить и конвертировать изображение
         if isinstance(image, (str, Path)):
             pil_image = Image.open(str(image)).convert("RGB")
         elif isinstance(image, np.ndarray):
-            # Convert BGR (OpenCV) to RGB (PIL)
+            # Конвертировать BGR (OpenCV) в RGB (PIL)
             pil_image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
         elif isinstance(image, Image.Image):
             pil_image = image.convert("RGB")
         else:
-            raise TypeError("Image must be file path, numpy array, or PIL Image")
+            raise TypeError("Изображение должно быть путём к файлу, numpy массивом или PIL Image")
 
-        # Apply transforms
+        # Применить трансформации
         img_tensor = self.transform(pil_image).unsqueeze(0).to(self.device)
 
-        # Run inference
+        # Запустить инференс
         with torch.no_grad():
             output = self.model(img_tensor)
             probs = torch.softmax(output, dim=1)
             confidence, predicted = torch.max(probs, 1)
 
-        # Extract results
+        # Извлечь результаты
         predicted_idx = predicted.item()
         predicted_class = self.class_names[predicted_idx]
         confidence_pct = confidence.item() * 100

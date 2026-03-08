@@ -1,8 +1,8 @@
 """
-Day-shapes classification module.
+Модуль классификации дневных фигур.
 
-Classifies vessel type based on day shapes (balls, cones, diamonds, cylinders).
-Implements COLREGS rules for day signals.
+Классифицирует тип судна по дневным фигурам (шары, конусы, ромбы, цилиндры).
+Реализует правила МППСС для дневных сигналов.
 """
 
 from dataclasses import dataclass
@@ -16,9 +16,9 @@ from ultralytics import YOLO
 from config import Config
 
 
-# COLREGS vessel types
+# Типы судов МППСС
 class VesselType:
-    """Vessel types according to COLREGS 72."""
+    """Типы судов согласно МППСС-72."""
 
     MECHANICAL = "MECH"
     SAIL = "SAIL"
@@ -31,7 +31,7 @@ class VesselType:
 
 @dataclass
 class DayShapeDetection:
-    """Represents a detected day shape."""
+    """Представляет обнаруженную дневную фигуру."""
 
     class_id: int
     class_name: str
@@ -43,45 +43,45 @@ class DayShapeDetection:
 
 @dataclass
 class VesselTypeResult:
-    """Classified vessel type from day shapes."""
+    """Классифицированный тип судна по дневным фигурам."""
 
-    vessel_type: str  # Vessel type according to COLREGS 72
-    bbox: List[int]  # Combined bounding box for the group
-    color: Tuple[int, int, int]  # BGR color for visualization
-    shapes: List[DayShapeDetection]  # Constituent shapes
-    sequence: List[int]  # Class sequence from top to bottom
+    vessel_type: str  # Тип судна согласно МППСС-72
+    bbox: List[int]  # Объединённый ограничивающий прямоугольник для группы
+    color: Tuple[int, int, int]  # Цвет BGR для визуализации
+    shapes: List[DayShapeDetection]  # Составляющие фигуры
+    sequence: List[int]  # Последовательность классов сверху вниз
 
     @property
     def is_known_signal(self) -> bool:
         return self.vessel_type not in ["Unknown", "Неизвестный сигнал"]
 
 
-# COLREGS day shapes rules → vessel types
-# Colors in BGR format, chosen for visibility on both day and night images
+# Правила дневных фигур МППСС → типы судов
+# Цвета в формате BGR, выбраны для видимости на дневных и ночных изображениях
 DAY_SHAPES_RULES = {
-    # NUC: Not Under Command - Ball, Ball
+    # NUC: Не может управляться - Шар, Шар
     VesselType.NUC: {
         "sequence": [0, 0],
-        "color": (0, 0, 255),  # Red
-        "description": "Not Under Command - 2 balls",
+        "color": (0, 0, 255),  # Красный
+        "description": "Не может управляться - 2 шара",
     },
-    # RAM: Restricted Ability to Maneuver - Ball, Diamond, Ball
+    # RAM: Ограничено в возможности маневрировать - Шар, Ромб, Шар
     VesselType.RAM: {
         "sequence": [0, 3, 0],
-        "color": (170, 255, 170),  # Magenta/Purple
-        "description": "Restricted Ability to Maneuver - ball-diamond-ball",
+        "color": (170, 255, 170),  # Маджента/Фиолетовый
+        "description": "Ограничено в возможности маневрировать - шар-ромб-шар",
     },
-    # CBD: Constrained by Draft - Cylinder
+    # CBD: Стеснено своей осадкой - Цилиндр
     VesselType.CBD: {
         "sequence": [4],
-        "color": (0, 165, 255),  # Orange
-        "description": "Constrained by Draft - cylinder",
+        "color": (0, 165, 255),  # Оранжевый
+        "description": "Стеснено своей осадкой - цилиндр",
     },
-    # Fishing - Cone down, Cone up (apexes together)
+    # Занято ловом рыбы - Конус вниз, Конус вверх (вершинами вместе)
     VesselType.FISHING: {
         "sequence": [2, 1],  # cone_down, cone_up
-        "color": (0, 255, 255),  # Cyan
-        "description": "Engaged in Fishing - cones apexes together",
+        "color": (0, 255, 255),  # Циан
+        "description": "Занято ловом рыбы - конусы вершинами вместе",
     },
 }
 
@@ -90,19 +90,19 @@ def _group_by_mast(
     detections: List[DayShapeDetection], x_tolerance: int = 40
 ) -> List[List[DayShapeDetection]]:
     """
-    Group detections by mast (vertical alignment).
+    Сгруппировать обнаружения по мачте (вертикальное выравнивание).
 
     Args:
-        detections: List of detected shapes.
-        x_tolerance: Maximum horizontal distance to consider same mast.
+        detections: Список обнаруженных фигур.
+        x_tolerance: Максимальное горизонтальное расстояние для считания одной мачтой.
 
     Returns:
-        List of groups, each group contains shapes on same mast.
+        Список групп, каждая группа содержит фигуры на одной мачте.
     """
     if not detections:
         return []
 
-    # Sort by vertical position (top to bottom)
+    # Сортировать по вертикальной позиции (сверху вниз)
     sorted_detections = sorted(detections, key=lambda x: x.center_y)
 
     groups = []
@@ -112,11 +112,11 @@ def _group_by_mast(
         prev = current_group[-1]
         curr = sorted_detections[i]
 
-        # Check if on same mast (similar X position)
+        # Проверить, на одной ли мачте (похожая позиция X)
         if abs(curr.center_x - prev.center_x) < x_tolerance:
             current_group.append(curr)
         else:
-            # New mast
+            # Новая мачта
             groups.append(current_group)
             current_group = [curr]
 
@@ -128,21 +128,21 @@ def _classify_group(
     group: List[DayShapeDetection], rules: dict = DAY_SHAPES_RULES
 ) -> VesselTypeResult:
     """
-    Classify vessel type based on shape sequence.
+    Классифицировать тип судна по последовательности фигур.
 
     Args:
-        group: List of shapes on same mast.
-        rules: Dictionary of COLREGS rules.
+        group: Список фигур на одной мачте.
+        rules: Словарь правил МППСС.
 
     Returns:
-        VesselTypeResult with classification result.
+        VesselTypeResult с результатом классификации.
     """
-    # Get sequence (top to bottom)
+    # Получить последовательность (сверху вниз)
     sequence = [d.class_id for d in group]
 
-    # Match against rules
+    # Сопоставить с правилами
     vessel_type = "Unknown"
-    color = (0, 0, 255)  # Red (unknown)
+    color = (0, 0, 255)  # Красный (неизвестный)
 
     for vtype, rule in rules.items():
         if sequence == rule["sequence"]:
@@ -150,7 +150,7 @@ def _classify_group(
             color = rule["color"]
             break
 
-    # Calculate combined bounding box
+    # Рассчитать объединённый ограничивающий прямоугольник
     x1_min = min(d.bbox[0] for d in group)
     y1_min = min(d.bbox[1] for d in group)
     x2_max = max(d.bbox[2] for d in group)
@@ -176,33 +176,33 @@ def classify_day_shapes(
     List[VesselTypeResult], Tuple[List[VesselTypeResult], List[DayShapeDetection]]
 ]:
     """
-    Classify vessel type based on day shapes.
+    Классифицировать тип судна по дневным фигурам.
 
-    This function is pipeline-agnostic - accepts any image and returns
-    classified vessel types based on COLREGS day signals.
+    Эта функция не зависит от конвейера — принимает любое изображение и возвращает
+    классифицированные типы судов согласно дневным сигналам МППСС.
 
     Args:
-        image: Input image as file path or numpy array (BGR).
-        config: Configuration object. Uses default if None.
-        confidence_threshold: Override default confidence threshold.
-        model_path: Path to YOLO model weights.
-        x_tolerance: Horizontal tolerance for mast grouping (pixels).
-        return_detections: If True, also return raw detections.
+        image: Входное изображение как путь к файлу или numpy массив (BGR).
+        config: Объект конфигурации. Используется по умолчанию, если None.
+        confidence_threshold: Переопределить порог уверенности по умолчанию.
+        model_path: Путь к весам модели YOLO.
+        x_tolerance: Горизонтальная толерантность для группировки по мачте (пиксели).
+        return_detections: Если True, также вернуть сырые обнаружения.
 
     Returns:
-        List of VesselTypeResult objects. If return_detections=True,
-        also returns list of raw DayShapeDetection objects.
+        Список объектов VesselTypeResult. Если return_detections=True,
+        также возвращает список сырых объектов DayShapeDetection.
 
-    Example:
+    Пример:
         >>> image = cv2.imread('vessel.png')
         >>> types = classify_day_shapes(image)
         >>> for vtype in types:
-        ...     print(f"Vessel type: {vtype.vessel_type}")
+        ...     print(f"Тип судна: {vtype.vessel_type}")
     """
     if config is None:
         config = Config()
 
-    # Resolve model path
+    # Разрешить путь к модели
     if model_path is None:
         model_path = config.get_model_path("day_shapes")
     else:
@@ -210,23 +210,23 @@ def classify_day_shapes(
         if not model_path.is_absolute():
             model_path = config.base_dir / model_path
 
-    # Load image
+    # Загрузить изображение
     if isinstance(image, (str, Path)):
         image_cv = cv2.imread(str(image))
         if image_cv is None:
-            raise ValueError(f"Failed to load image: {image}")
+            raise ValueError(f"Не удалось загрузить изображение: {image}")
         image = image_cv
     elif not isinstance(image, np.ndarray):
-        raise TypeError("Image must be a file path or numpy array")
+        raise TypeError("Изображение должно быть путём к файлу или numpy массивом")
 
-    # Load model and run inference
+    # Загрузить модель и выполнить инференс
     model = YOLO(str(model_path))
     results = model(
         image, conf=confidence_threshold or config.day_shapes.confidence_threshold
     )
     result = results[0]
 
-    # Extract detections
+    # Извлечь обнаружения
     detections = []
     if result.boxes is not None:
         boxes = result.boxes
@@ -248,7 +248,7 @@ def classify_day_shapes(
                 )
             )
 
-    # Group by mast and classify
+    # Сгруппировать по мачте и классифицировать
     groups = _group_by_mast(detections, x_tolerance or config.grouping_x_tolerance)
     statuses = [_classify_group(group) for group in groups]
 

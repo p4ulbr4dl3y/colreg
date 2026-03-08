@@ -1,7 +1,7 @@
 """
-Boat detection and cropping module.
+Модуль обнаружения и кадрирования судов.
 
-Detects boats in images using YOLO and returns cropped regions.
+Обнаруживает суда на изображениях с помощью YOLO и возвращает вырезанные области.
 """
 
 from dataclasses import dataclass
@@ -17,12 +17,12 @@ from config import Config
 
 @dataclass
 class BoatDetection:
-    """Represents a detected boat with its crop and metadata."""
+    """Представляет обнаруженное судно с его вырезом и метаданными."""
 
-    crop: np.ndarray  # The cropped boat image (BGR)
-    bbox: List[int]  # [x1, y1, x2, y2] in original image coordinates
-    confidence: float  # Detection confidence
-    crop_id: int  # Unique ID for this detection
+    crop: np.ndarray  # Вырезанное изображение судна (BGR)
+    bbox: List[int]  # [x1, y1, x2, y2] в координатах исходного изображения
+    confidence: float  # Уверенность обнаружения
+    crop_id: int  # Уникальный ID для этого обнаружения
 
     @property
     def width(self) -> int:
@@ -41,32 +41,32 @@ def detect_and_crop_boats(
     model_path: Optional[Union[str, Path]] = None,
 ) -> List[BoatDetection]:
     """
-    Detect boats in an image and return cropped regions.
+    Обнаружить суда на изображении и вернуть вырезанные области.
 
-    This function is pipeline-agnostic - it accepts an image and returns
-    boat detections with crops. No side effects (no file saving).
+    Эта функция не зависит от конвейера — она принимает изображение и возвращает
+    обнаружения судов с вырезами. Без побочных эффектов (без сохранения файлов).
 
     Args:
-        image: Input image as file path (str/Path) or numpy array (BGR).
-        config: Configuration object. Uses default Config if None.
-        confidence_threshold: Override default confidence threshold.
-        class_id: Class ID for boat detection (default: 8 for COCO boat).
-        model_path: Path to YOLO model weights. Uses default if None.
+        image: Входное изображение как путь к файлу (str/Path) или numpy массив (BGR).
+        config: Объект конфигурации. Использует Config по умолчанию, если None.
+        confidence_threshold: Переопределить порог уверенности по умолчанию.
+        class_id: ID класса для обнаружения судов (по умолчанию: 8 для COCO boat).
+        model_path: Путь к весам модели YOLO. Используется по умолчанию, если None.
 
     Returns:
-        List of BoatDetection objects containing crops and metadata.
-        Empty list if no boats detected or image loading fails.
+        Список объектов BoatDetection, содержащих вырезы и метаданные.
+        Пустой список, если суда не обнаружены или загрузка изображения не удалась.
 
-    Example:
+    Пример:
         >>> image = cv2.imread('frame.jpg')
         >>> detections = detect_and_crop_boats(image)
         >>> for det in detections:
-        ...     print(f"Boat detected: {det.confidence:.2f}, size: {det.width}x{det.height}")
+        ...     print(f"Судно обнаружено: {det.confidence:.2f}, размер: {det.width}x{det.height}")
     """
     if config is None:
         config = Config()
 
-    # Resolve model path
+    # Разрешить путь к модели
     if model_path is None:
         model_path = config.get_model_path("boat_detector")
     else:
@@ -74,16 +74,16 @@ def detect_and_crop_boats(
         if not model_path.is_absolute():
             model_path = config.base_dir / model_path
 
-    # Load image
+    # Загрузить изображение
     if isinstance(image, (str, Path)):
         image_cv = cv2.imread(str(image))
         if image_cv is None:
-            raise ValueError(f"Failed to load image: {image}")
+            raise ValueError(f"Не удалось загрузить изображение: {image}")
         image = image_cv
     elif not isinstance(image, np.ndarray):
-        raise TypeError("Image must be a file path or numpy array")
+        raise TypeError("Изображение должно быть путём к файлу или numpy массивом")
 
-    # Load model and run inference
+    # Загрузить модель и выполнить инференс
     model = YOLO(str(model_path))
     results = model(
         image, conf=confidence_threshold or config.boat_detector.confidence_threshold
@@ -102,7 +102,7 @@ def detect_and_crop_boats(
                 conf = float(boxes.conf[i])
                 x1, y1, x2, y2 = map(int, boxes.xyxy[i])
 
-                # Crop the boat region
+                # Вырезать область судна
                 crop = image[y1:y2, x1:x2].copy()
 
                 detections.append(
