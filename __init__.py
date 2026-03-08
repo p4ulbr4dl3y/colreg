@@ -1,14 +1,14 @@
 """
-Universal Video Analytics Pipeline for Maritime Navigation.
+Универсальный конвейер видеоаналитики для морской навигации.
 
-This package provides modular, reusable functions for:
-- Boat detection and cropping
-- Binary classification (sailboat vs mechanical)
-- Infrared object detection (night mode)
-- Day-shapes classification (COLREGS 72 vessel types)
-- Navigation lights classification (COLREGS 72 vessel types)
+Этот пакет предоставляет модульные, переиспользуемые функции для:
+- Обнаружения и кадрирования судов
+- Бинарной классификации (парусное vs механическое)
+- Инфракрасного обнаружения объектов (ночной режим)
+- Классификации дневных фигур (типы судов МППСС-72)
+- Классификации навигационных огней (типы судов МППСС-72)
 
-COLREGS 72 Vessel Types (МППСС-72):
+Типы судов МППСС-72:
 - Судно с механическим двигателем (Mechanical vessel)
 - Парусное судно (Sail vessel)
 - Судно, занятое ловом рыбы (Fishing vessel)

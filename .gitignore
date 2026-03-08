@@ -49,3 +49,6 @@ Thumbs.db
 *.env
 *.key
 *.pem
+
+# Testing
+testing/

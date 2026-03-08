@@ -1,7 +1,7 @@
 """
-Configuration module for the video analytics pipeline.
+Модуль конфигурации для конвейера видеоаналитики.
 
-Centralized configuration for model paths, class mappings, and thresholds.
+Централизованная конфигурация для путей к моделям, маппингов классов и порогов.
 """
 
 from dataclasses import dataclass, field
@@ -11,7 +11,7 @@ from typing import Dict, List
 
 @dataclass
 class ModelConfig:
-    """Model configuration with paths and parameters."""
+    """Конфигурация модели с путями и параметрами."""
 
     path: str
     confidence_threshold: float = 0.5
@@ -20,54 +20,54 @@ class ModelConfig:
 @dataclass
 class Config:
     """
-    Centralized configuration for the video analytics pipeline.
+    Централизованная конфигурация для конвейера видеоаналитики.
 
-    All paths are relative to the video-analytics directory.
+    Все пути относительны директории video-analytics.
     """
 
-    # Base directory (video-analytics)
+    # Базовая директория (video-analytics)
     base_dir: Path = field(default_factory=lambda: Path(__file__).parent)
 
-    # ==================== MODEL PATHS ====================
+    # ==================== ПУТИ К МОДЕЛЯМ ====================
 
-    # Boat detection (YOLO)
+    # Обнаружение судов (YOLO)
     boat_detector: ModelConfig = field(
         default_factory=lambda: ModelConfig(
             path="models/yolo11n.pt", confidence_threshold=0.5
         )
     )
 
-    # Binary classifier (sailboat vs not sailboat)
+    # Бинарный классификатор (парусное vs непарусное)
     binary_classifier: ModelConfig = field(
         default_factory=lambda: ModelConfig(
             path="models/binary-classifier.pth", confidence_threshold=0.5
         )
     )
 
-    # Infrared detection (night mode)
+    # Инфракрасное обнаружение (ночной режим)
     infrared_detector: ModelConfig = field(
         default_factory=lambda: ModelConfig(
             path="models/infrared.pt", confidence_threshold=0.25
         )
     )
 
-    # Day-shapes classification
+    # Классификация дневных фигур
     day_shapes: ModelConfig = field(
         default_factory=lambda: ModelConfig(
             path="models/day-shapes.pt", confidence_threshold=0.5
         )
     )
 
-    # Lights classification
+    # Классификация огней
     lights: ModelConfig = field(
         default_factory=lambda: ModelConfig(
             path="models/lights.pt", confidence_threshold=0.5
         )
     )
 
-    # ==================== CLASS MAPPINGS ====================
+    # ==================== МАППИНГИ КЛАССОВ ====================
 
-    # Day-shapes class mapping
+    # Маппинг классов дневных фигур
     day_shapes_classes: Dict[int, str] = field(
         default_factory=lambda: {
             0: "ball",
@@ -78,28 +78,28 @@ class Config:
         }
     )
 
-    # Lights class mapping
+    # Маппинг классов огней
     lights_classes: Dict[int, str] = field(
         default_factory=lambda: {0: "white", 1: "red", 2: "green"}
     )
 
-    # Binary classifier class names (loaded from checkpoint)
+    # Имена классов бинарного классификатора (загружаются из checkpoint)
     binary_classifier_classes: List[str] = field(
         default_factory=lambda: ["not_sailboat", "sailboat"]
     )
 
-    # ==================== DETECTION PARAMETERS ====================
+    # ==================== ПАРАМЕТРЫ ОБНАРУЖЕНИЯ ====================
 
-    # Boat class ID in COCO dataset
+    # ID класса судна в наборе данных COCO
     boat_class_id: int = 8
 
-    # Grouping tolerance for day-shapes and lights (pixels)
+    # Толерантность группировки для дневных фигур и огней (пиксели)
     grouping_x_tolerance: int = 40
 
-    # Image size for binary classifier
+    # Размер изображения для бинарного классификатора
     classifier_image_size: int = 224
 
-    # Normalization for binary classifier
+    # Нормализация для бинарного классификатора
     classifier_normalize_mean: List[float] = field(
         default_factory=lambda: [0.485, 0.456, 0.406]
     )
@@ -108,7 +108,7 @@ class Config:
     )
 
     def get_model_path(self, model_name: str) -> Path:
-        """Get absolute path for a model."""
+        """Получить абсолютный путь для модели."""
         model_config = getattr(self, model_name)
         if isinstance(model_config, ModelConfig):
             return self.base_dir / model_config.path

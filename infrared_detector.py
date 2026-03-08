@@ -1,7 +1,7 @@
 """
-Infrared object detection module for night mode.
+Модуль инфракрасного обнаружения объектов для ночного режима.
 
-Detects objects in infrared/thermal images using YOLO.
+Обнаруживает объекты на инфракрасных/тепловых изображениях с помощью YOLO.
 """
 
 from dataclasses import dataclass
@@ -17,7 +17,7 @@ from config import Config
 
 @dataclass
 class InfraredDetection:
-    """Represents a detected object in infrared image."""
+    """Представляет обнаруженный объект на инфракрасном изображении."""
 
     bbox: List[int]  # [x1, y1, x2, y2]
     confidence: float
@@ -49,31 +49,31 @@ def detect_infrared_objects(
     class_filter: Optional[List[int]] = None,
 ) -> List[InfraredDetection]:
     """
-    Detect objects in infrared/thermal images.
+    Обнаружить объекты на инфракрасных/тепловых изображениях.
 
-    This function is pipeline-agnostic - accepts any image and returns
-    detections. Works with both day and night infrared imagery.
+    Эта функция не зависит от конвейера — принимает любое изображение и возвращает
+    обнаружения. Работает как с дневными, так и с ночными инфракрасными изображениями.
 
     Args:
-        image: Input image as file path or numpy array (BGR/RGB).
-        config: Configuration object. Uses default if None.
-        confidence_threshold: Override default confidence threshold.
-        model_path: Path to YOLO model weights for infrared detection.
-        class_filter: Optional list of class IDs to filter results.
+        image: Входное изображение как путь к файлу или numpy массив (BGR/RGB).
+        config: Объект конфигурации. Используется по умолчанию, если None.
+        confidence_threshold: Переопределить порог уверенности по умолчанию.
+        model_path: Путь к весам модели YOLO для инфракрасного обнаружения.
+        class_filter: Опциональный список ID классов для фильтрации результатов.
 
     Returns:
-        List of InfraredDetection objects. Empty list if no objects detected.
+        Список объектов InfraredDetection. Пустой список, если объекты не обнаружены.
 
-    Example:
+    Пример:
         >>> image = cv2.imread('night_scene.png')
         >>> detections = detect_infrared_objects(image)
         >>> for det in detections:
-        ...     print(f"Object: {det.class_name}, conf: {det.confidence:.2f}")
+        ...     print(f"Объект: {det.class_name}, ув: {det.confidence:.2f}")
     """
     if config is None:
         config = Config()
 
-    # Resolve model path
+    # Разрешить путь к модели
     if model_path is None:
         model_path = config.get_model_path("infrared_detector")
     else:
@@ -81,16 +81,16 @@ def detect_infrared_objects(
         if not model_path.is_absolute():
             model_path = config.base_dir / model_path
 
-    # Load image
+    # Загрузить изображение
     if isinstance(image, (str, Path)):
         image_cv = cv2.imread(str(image))
         if image_cv is None:
-            raise ValueError(f"Failed to load image: {image}")
+            raise ValueError(f"Не удалось загрузить изображение: {image}")
         image = image_cv
     elif not isinstance(image, np.ndarray):
-        raise TypeError("Image must be a file path or numpy array")
+        raise TypeError("Изображение должно быть путём к файлу или numpy массивом")
 
-    # Load model and run inference
+    # Загрузить модель и выполнить инференс
     model = YOLO(str(model_path))
     results = model(
         image,
@@ -105,7 +105,7 @@ def detect_infrared_objects(
         for i in range(len(boxes)):
             class_id = int(boxes.cls[i])
 
-            # Apply class filter if specified
+            # Применить фильтр классов, если указан
             if class_filter is not None and class_id not in class_filter:
                 continue
 

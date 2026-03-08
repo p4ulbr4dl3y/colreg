@@ -1,8 +1,8 @@
 """
-Navigation lights classification module.
+Модуль классификации навигационных огней.
 
-Classifies vessel type based on navigation lights.
-Implements COLREGS rules for night signals.
+Классифицирует тип судна по навигационным огням.
+Реализует правила МППСС для ночных сигналов.
 """
 
 from dataclasses import dataclass
@@ -16,9 +16,9 @@ from ultralytics import YOLO
 from config import Config
 
 
-# COLREGS vessel types
+# Типы судов МППСС
 class VesselType:
-    """Vessel types according to COLREGS 72."""
+    """Типы судов согласно МППСС-72."""
 
     MECHANICAL = "MECH"
     SAIL = "SAIL"
@@ -31,7 +31,7 @@ class VesselType:
 
 @dataclass
 class LightDetection:
-    """Represents a detected navigation light."""
+    """Представляет обнаруженный навигационный огонь."""
 
     class_id: int
     class_name: str  # 'white', 'red', 'green'
@@ -43,51 +43,51 @@ class LightDetection:
 
 @dataclass
 class VesselTypeResult:
-    """Classified vessel type from navigation lights."""
+    """Классифицированный тип судна по навигационным огням."""
 
-    vessel_type: str  # Vessel type according to COLREGS 72
-    bbox: List[int]  # Combined bounding box for the group
-    color: Tuple[int, int, int]  # BGR color for visualization
-    lights: List[LightDetection]  # Constituent lights
-    sequence: List[int]  # Class sequence from top to bottom
+    vessel_type: str  # Тип судна согласно МППСС-72
+    bbox: List[int]  # Объединённый ограничивающий прямоугольник для группы
+    color: Tuple[int, int, int]  # Цвет BGR для визуализации
+    lights: List[LightDetection]  # Составляющие огни
+    sequence: List[int]  # Последовательность классов сверху вниз
 
     @property
     def is_known_signal(self) -> bool:
         return self.vessel_type not in ["Unknown", "Неизвестный сигнал"]
 
 
-# COLREGS navigation lights rules → vessel types
-# Colors in BGR format, chosen for visibility on both day and night images
+# Правила навигационных огней МППСС → типы судов
+# Цвета в формате BGR, выбраны для видимости на дневных и ночных изображениях
 LIGHTS_RULES = {
-    # NUC: Not Under Command - Red, Red
+    # NUC: Не может управляться - Красный, Красный
     VesselType.NUC: {
         "sequence": [1, 1],
-        "color": (0, 0, 255),  # Red
-        "description": "Not Under Command - 2 red lights",
+        "color": (0, 0, 255),  # Красный
+        "description": "Не может управляться - 2 красных огня",
     },
-    # RAM: Restricted Ability to Maneuver - Red, White, Red
+    # RAM: Ограничено в возможности маневрировать - Красный, Белый, Красный
     VesselType.RAM: {
         "sequence": [1, 0, 1],
-        "color": (170, 255, 170),  # Magenta/Purple
-        "description": "Restricted Ability to Maneuver - red-white-red",
+        "color": (170, 255, 170),  # Маджента/Фиолетовый
+        "description": "Ограничено в возможности маневрировать - красный-белый-красный",
     },
-    # Fishing (not trawling) - Red, White
+    # Занято ловом рыбы (не траление) - Красный, Белый
     VesselType.FISHING: {
         "sequence": [1, 0],
-        "color": (0, 255, 255),  # Cyan
-        "description": "Engaged in Fishing - red-white",
+        "color": (0, 255, 255),  # Циан
+        "description": "Занято ловом рыбы - красный-белый",
     },
-    # Trawling - Green, White
+    # Траление - Зелёный, Белый
     VesselType.TRAWLING: {
         "sequence": [2, 0],
-        "color": (0, 255, 128),  # Lime
-        "description": "Engaged in Trawling - green-white",
+        "color": (0, 255, 128),  # Лаймовый
+        "description": "Занято тралением - зелёный-белый",
     },
-    # CBD: Constrained by Draft - Red, Red, Red
+    # CBD: Стеснено своей осадкой - Красный, Красный, Красный
     VesselType.CBD: {
         "sequence": [1, 1, 1],
-        "color": (0, 165, 255),  # Orange
-        "description": "Constrained by Draft - 3 red lights",
+        "color": (0, 165, 255),  # Оранжевый
+        "description": "Стеснено своей осадкой - 3 красных огня",
     },
 }
 
@@ -96,19 +96,19 @@ def _group_by_mast(
     detections: List[LightDetection], x_tolerance: int = 40
 ) -> List[List[LightDetection]]:
     """
-    Group detections by mast (vertical alignment).
+    Сгруппировать обнаружения по мачте (вертикальное выравнивание).
 
     Args:
-        detections: List of detected lights.
-        x_tolerance: Maximum horizontal distance to consider same mast.
+        detections: Список обнаруженных огней.
+        x_tolerance: Максимальное горизонтальное расстояние для считания одной мачтой.
 
     Returns:
-        List of groups, each group contains lights on same mast.
+        Список групп, каждая группа содержит огни на одной мачте.
     """
     if not detections:
         return []
 
-    # Sort by vertical position (top to bottom)
+    # Сортировать по вертикальной позиции (сверху вниз)
     sorted_detections = sorted(detections, key=lambda x: x.center_y)
 
     groups = []
@@ -118,11 +118,11 @@ def _group_by_mast(
         prev = current_group[-1]
         curr = sorted_detections[i]
 
-        # Check if on same mast (similar X position)
+        # Проверить, на одной ли мачте (похожая позиция X)
         if abs(curr.center_x - prev.center_x) < x_tolerance:
             current_group.append(curr)
         else:
-            # New mast
+            # Новая мачта
             groups.append(current_group)
             current_group = [curr]
 
@@ -134,21 +134,21 @@ def _classify_group(
     group: List[LightDetection], rules: dict = LIGHTS_RULES
 ) -> VesselTypeResult:
     """
-    Classify vessel type based on light sequence.
+    Классифицировать тип судна по последовательности огней.
 
     Args:
-        group: List of lights on same mast.
-        rules: Dictionary of COLREGS rules.
+        group: Список огней на одной мачте.
+        rules: Словарь правил МППСС.
 
     Returns:
-        VesselTypeResult with classification result.
+        VesselTypeResult с результатом классификации.
     """
-    # Get sequence (top to bottom)
+    # Получить последовательность (сверху вниз)
     sequence = [d.class_id for d in group]
 
-    # Match against rules
+    # Сопоставить с правилами
     vessel_type = "Unknown"
-    color = (0, 0, 255)  # Red (unknown)
+    color = (0, 0, 255)  # Красный (неизвестный)
 
     for vtype, rule in rules.items():
         if sequence == rule["sequence"]:
@@ -156,7 +156,7 @@ def _classify_group(
             color = rule["color"]
             break
 
-    # Calculate combined bounding box
+    # Рассчитать объединённый ограничивающий прямоугольник
     x1_min = min(d.bbox[0] for d in group)
     y1_min = min(d.bbox[1] for d in group)
     x2_max = max(d.bbox[2] for d in group)
@@ -180,33 +180,33 @@ def classify_lights(
     return_detections: bool = False,
 ) -> Union[List[VesselTypeResult], Tuple[List[VesselTypeResult], List[LightDetection]]]:
     """
-    Classify vessel type based on navigation lights.
+    Классифицировать тип судна по навигационным огням.
 
-    This function is pipeline-agnostic - accepts any image and returns
-    classified vessel types based on COLREGS navigation light signals.
+    Эта функция не зависит от конвейера — принимает любое изображение и возвращает
+    классифицированные типы судов согласно сигналам навигационных огней МППСС.
 
     Args:
-        image: Input image as file path or numpy array (BGR).
-        config: Configuration object. Uses default if None.
-        confidence_threshold: Override default confidence threshold.
-        model_path: Path to YOLO model weights.
-        x_tolerance: Horizontal tolerance for mast grouping (pixels).
-        return_detections: If True, also return raw detections.
+        image: Входное изображение как путь к файлу или numpy массив (BGR).
+        config: Объект конфигурации. Используется по умолчанию, если None.
+        confidence_threshold: Переопределить порог уверенности по умолчанию.
+        model_path: Путь к весам модели YOLO.
+        x_tolerance: Горизонтальная толерантность для группировки по мачте (пиксели).
+        return_detections: Если True, также вернуть сырые обнаружения.
 
     Returns:
-        List of VesselTypeResult objects. If return_detections=True,
-        also returns list of raw LightDetection objects.
+        Список объектов VesselTypeResult. Если return_detections=True,
+        также возвращает список сырых объектов LightDetection.
 
-    Example:
+    Пример:
         >>> image = cv2.imread('night_vessel.png')
         >>> statuses = classify_lights(image)
         >>> for status in statuses:
-        ...     print(f"Vessel status: {status.status}")
+        ...     print(f"Тип судна: {status.vessel_type}")
     """
     if config is None:
         config = Config()
 
-    # Resolve model path
+    # Разрешить путь к модели
     if model_path is None:
         model_path = config.get_model_path("lights")
     else:
@@ -214,23 +214,23 @@ def classify_lights(
         if not model_path.is_absolute():
             model_path = config.base_dir / model_path
 
-    # Load image
+    # Загрузить изображение
     if isinstance(image, (str, Path)):
         image_cv = cv2.imread(str(image))
         if image_cv is None:
-            raise ValueError(f"Failed to load image: {image}")
+            raise ValueError(f"Не удалось загрузить изображение: {image}")
         image = image_cv
     elif not isinstance(image, np.ndarray):
-        raise TypeError("Image must be a file path or numpy array")
+        raise TypeError("Изображение должно быть путём к файлу или numpy массивом")
 
-    # Load model and run inference
+    # Загрузить модель и выполнить инференс
     model = YOLO(str(model_path))
     results = model(
         image, conf=confidence_threshold or config.lights.confidence_threshold
     )
     result = results[0]
 
-    # Extract detections
+    # Извлечь обнаружения
     detections = []
     if result.boxes is not None:
         boxes = result.boxes
@@ -250,7 +250,7 @@ def classify_lights(
                 )
             )
 
-    # Group by mast and classify
+    # Сгруппировать по мачте и классифицировать
     groups = _group_by_mast(detections, x_tolerance or config.grouping_x_tolerance)
     vessel_types = [_classify_group(group) for group in groups]
 
