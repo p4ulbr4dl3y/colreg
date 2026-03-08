@@ -263,8 +263,9 @@ class VideoAnalyticsPipeline:
         """
         Process night mode with separate IR and visible images.
 
-        Uses IR image for boat detection (thermal signature), then classifies
+        Uses IR image for boat detection (infrared.pt model), then classifies
         navigation lights on visible image crops at the same coordinates.
+        Results are visualized on the IR image.
 
         Args:
             ir_image: Infrared/thermal image for boat detection.
@@ -305,10 +306,27 @@ class VideoAnalyticsPipeline:
         elif not isinstance(visible_image, np.ndarray):
             raise TypeError("Visible image must be a file path or numpy array")
 
-        # Step 1: Detect boats on IR image
-        boat_detections = detect_and_crop_boats(
-            image=ir_image, config=self.config, confidence_threshold=boat_confidence
+        # Step 1: Detect boats on IR image using infrared.pt model
+        from infrared_detector import InfraredDetection
+        ir_detections_raw = detect_infrared_objects(
+            image=ir_image,
+            config=self.config,
+            confidence_threshold=boat_confidence,
         )
+
+        # Convert InfraredDetection to BoatDetection for compatibility
+        boat_detections = []
+        for i, ir_det in enumerate(ir_detections_raw):
+            x1, y1, x2, y2 = ir_det.bbox
+            crop = ir_image[y1:y2, x1:x2].copy()
+            boat_detections.append(
+                BoatDetection(
+                    crop=crop,
+                    bbox=ir_det.bbox,
+                    confidence=ir_det.confidence,
+                    crop_id=i,
+                )
+            )
 
         # Step 2: Binary classification on IR crops, lights on visible crops
         boats = []
@@ -353,7 +371,7 @@ class VideoAnalyticsPipeline:
             boat_result = BoatAnalysisResult(
                 boat_id=i,
                 crop=adj_crop,  # visible crop for lights
-                bbox=adj_bbox,
+                bbox=[exp_x1, exp_y1, exp_x2, exp_y2],  # expanded IR coords for drawing on IR image
                 detection_confidence=boat_det.confidence,
             )
 
@@ -373,13 +391,11 @@ class VideoAnalyticsPipeline:
 
             boats.append(boat_result)
 
-        # Initialize result
-        result = PipelineResult(image=visible_image, is_night=True, boats=boats)
+        # Initialize result - use IR image for visualization
+        result = PipelineResult(image=ir_image, is_night=True, boats=boats)
 
-        # Step 3: Infrared detection on full IR image
-        result.infrared_detections = detect_infrared_objects(
-            image=ir_image, config=self.config
-        )
+        # Store IR detections (already computed in Step 1)
+        result.infrared_detections = ir_detections_raw
 
         # Step 4: Lights classification on visible crops
         for boat in boats:
@@ -431,9 +447,9 @@ def draw_results(
         elif boat.lights_status and boat.lights_status.is_known_signal:
             color = boat.lights_status.color
         elif label == "SAIL":
-            color = (0, 255, 0)  # Green for sail
+            color = (0, 255, 0)  # Green for sailboat
         else:
-            color = (255, 0, 0)  # Blue for mechanical (BGR)
+            color = (255, 200, 0)  # Light blue for mechanical (BGR)
 
         # Draw bounding box
         cv2.rectangle(output, (x1, y1), (x2, y2), color, thickness)

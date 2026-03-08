@@ -57,35 +57,36 @@ class VesselTypeResult:
 
 
 # COLREGS navigation lights rules → vessel types
+# Colors in BGR format, chosen for visibility on both day and night images
 LIGHTS_RULES = {
     # NUC: Not Under Command - Red, Red
     VesselType.NUC: {
         "sequence": [1, 1],
-        "color": (0, 255, 0),  # Green
+        "color": (0, 0, 255),  # Red
         "description": "Not Under Command - 2 red lights",
     },
     # RAM: Restricted Ability to Maneuver - Red, White, Red
     VesselType.RAM: {
         "sequence": [1, 0, 1],
-        "color": (0, 255, 0),
+        "color": (170, 255, 170),  # Magenta/Purple
         "description": "Restricted Ability to Maneuver - red-white-red",
     },
     # Fishing (not trawling) - Red, White
     VesselType.FISHING: {
         "sequence": [1, 0],
-        "color": (0, 255, 0),
+        "color": (0, 255, 255),  # Cyan
         "description": "Engaged in Fishing - red-white",
     },
     # Trawling - Green, White
     VesselType.TRAWLING: {
         "sequence": [2, 0],
-        "color": (0, 255, 0),
+        "color": (0, 255, 128),  # Lime
         "description": "Engaged in Trawling - green-white",
     },
     # CBD: Constrained by Draft - Red, Red, Red
     VesselType.CBD: {
         "sequence": [1, 1, 1],
-        "color": (0, 255, 0),
+        "color": (0, 165, 255),  # Orange
         "description": "Constrained by Draft - 3 red lights",
     },
 }

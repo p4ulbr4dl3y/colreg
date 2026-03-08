@@ -57,29 +57,30 @@ class VesselTypeResult:
 
 
 # COLREGS day shapes rules → vessel types
+# Colors in BGR format, chosen for visibility on both day and night images
 DAY_SHAPES_RULES = {
     # NUC: Not Under Command - Ball, Ball
     VesselType.NUC: {
         "sequence": [0, 0],
-        "color": (0, 255, 0),  # Green
+        "color": (0, 0, 255),  # Red
         "description": "Not Under Command - 2 balls",
     },
     # RAM: Restricted Ability to Maneuver - Ball, Diamond, Ball
     VesselType.RAM: {
         "sequence": [0, 3, 0],
-        "color": (0, 255, 0),
+        "color": (170, 255, 170),  # Magenta/Purple
         "description": "Restricted Ability to Maneuver - ball-diamond-ball",
     },
     # CBD: Constrained by Draft - Cylinder
     VesselType.CBD: {
         "sequence": [4],
-        "color": (0, 255, 0),
+        "color": (0, 165, 255),  # Orange
         "description": "Constrained by Draft - cylinder",
     },
     # Fishing - Cone down, Cone up (apexes together)
     VesselType.FISHING: {
         "sequence": [2, 1],  # cone_down, cone_up
-        "color": (0, 255, 0),
+        "color": (0, 255, 255),  # Cyan
         "description": "Engaged in Fishing - cones apexes together",
     },
 }
