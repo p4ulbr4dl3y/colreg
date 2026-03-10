@@ -165,6 +165,7 @@ class VideoAnalyticsPipeline:
         boat_confidence: Optional[float] = None,
         classifier_confidence: Optional[float] = None,
         skip_classification: bool = False,
+        bbox_scale: Tuple[float, float, float, float] = (1.0, 1.0, 1.0, 1.0),
     ) -> PipelineResult:
         """
         Обработать изображение через полный конвейер.
@@ -175,6 +176,8 @@ class VideoAnalyticsPipeline:
             boat_confidence: Переопределить порог уверенности обнаружения судов.
             classifier_confidence: Переопределить порог уверенности бинарного классификатора.
             skip_classification: Пропустить шаг бинарной классификации.
+            bbox_scale: Коэффициенты масштабирования для расширения bbox (слева, сверху, справа, снизу).
+                По умолчанию (1.0, 1.0, 1.0, 1.0) — без масштабирования.
 
         Returns:
             PipelineResult со всеми результатами анализа.
@@ -202,16 +205,40 @@ class VideoAnalyticsPipeline:
         # Шаг 2: Бинарная классификация для каждого судна → тип судна
         boats = []
         for i, boat_det in enumerate(boat_detections):
+            # Исходный bbox от детектора
+            x1, y1, x2, y2 = boat_det.bbox
+
+            # Вычислить центр и размеры
+            cx = (x1 + x2) / 2
+            cy = (y1 + y2) / 2
+            w = x2 - x1
+            h = y2 - y1
+
+            # Расширить bbox с использованием коэффициентов масштабирования
+            new_w = w * bbox_scale[0]  # слева
+            new_h_top = h * bbox_scale[1]  # сверху
+            new_w_right = w * bbox_scale[2]  # справа
+            new_h_bottom = h * bbox_scale[3]  # снизу
+
+            # Рассчитать расширенный bbox
+            exp_x1 = int(max(0, cx - new_w / 2))
+            exp_y1 = int(max(0, cy - new_h_top / 2))
+            exp_x2 = int(min(image.shape[1], cx + new_w_right / 2))
+            exp_y2 = int(min(image.shape[0], cy + new_h_bottom / 2))
+
+            # Вырезать с расширенным bbox
+            crop = image[exp_y1:exp_y2, exp_x1:exp_x2]
+
             boat_result = BoatAnalysisResult(
                 boat_id=i,
-                crop=boat_det.crop,
-                bbox=boat_det.bbox,
+                crop=crop,
+                bbox=[exp_x1, exp_y1, exp_x2, exp_y2],
                 detection_confidence=boat_det.confidence,
             )
 
             # Бинарный классификатор: sailboat vs not_sailboat → тип судна
             if not skip_classification:
-                class_result = self.classifier.classify(boat_det.crop)
+                class_result = self.classifier.classify(crop)
                 if class_result.is_sailboat:
                     boat_result.vessel_type = "SAIL"
                     boat_result.vessel_type_confidence = (
@@ -296,18 +323,25 @@ class VideoAnalyticsPipeline:
                 raise ValueError(f"Не удалось загрузить ИК-изображение: {ir_image}")
             ir_image = ir_cv
         elif not isinstance(ir_image, np.ndarray):
-            raise TypeError("ИК-изображение должно быть путём к файлу или numpy массивом")
+            raise TypeError(
+                "ИК-изображение должно быть путём к файлу или numpy массивом"
+            )
 
         if isinstance(visible_image, (str, Path)):
             vis_cv = cv2.imread(str(visible_image))
             if vis_cv is None:
-                raise ValueError(f"Не удалось загрузить видимое изображение: {visible_image}")
+                raise ValueError(
+                    f"Не удалось загрузить видимое изображение: {visible_image}"
+                )
             visible_image = vis_cv
         elif not isinstance(visible_image, np.ndarray):
-            raise TypeError("Видимое изображение должно быть путём к файлу или numpy массивом")
+            raise TypeError(
+                "Видимое изображение должно быть путём к файлу или numpy массивом"
+            )
 
         # Шаг 1: Обнаружить суда на ИК-изображении с помощью модели infrared.pt
         from infrared_detector import InfraredDetection
+
         ir_detections_raw = detect_infrared_objects(
             image=ir_image,
             config=self.config,
@@ -371,7 +405,12 @@ class VideoAnalyticsPipeline:
             boat_result = BoatAnalysisResult(
                 boat_id=i,
                 crop=adj_crop,  # видимый вырез для огней
-                bbox=[exp_x1, exp_y1, exp_x2, exp_y2],  # расширенные ИК-координаты для рисования на ИК-изображении
+                bbox=[
+                    exp_x1,
+                    exp_y1,
+                    exp_x2,
+                    exp_y2,
+                ],  # расширенные ИК-координаты для рисования на ИК-изображении
                 detection_confidence=boat_det.confidence,
             )
 

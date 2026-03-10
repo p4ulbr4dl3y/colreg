@@ -166,7 +166,9 @@ class BinaryClassifier:
         elif isinstance(image, Image.Image):
             pil_image = image.convert("RGB")
         else:
-            raise TypeError("Изображение должно быть путём к файлу, numpy массивом или PIL Image")
+            raise TypeError(
+                "Изображение должно быть путём к файлу, numpy массивом или PIL Image"
+            )
 
         # Применить трансформации
         img_tensor = self.transform(pil_image).unsqueeze(0).to(self.device)
