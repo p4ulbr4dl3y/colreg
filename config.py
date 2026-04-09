@@ -47,7 +47,7 @@ class Config:
     # Инфракрасное обнаружение (ночной режим)
     infrared_detector: ModelConfig = field(
         default_factory=lambda: ModelConfig(
-            path="models/infrared.pt", confidence_threshold=0.25
+            path="models/thermal_best.pt", confidence_threshold=0.25
         )
     )
 

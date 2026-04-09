@@ -14,7 +14,7 @@ import numpy as np
 from binary_classifier import BinaryClassifier, ClassificationResult
 from boat_detector import BoatDetection, detect_and_crop_boats
 from config import Config
-from day_shapes import VesselTypeResult, classify_day_shapes
+from day_shapes import VesselType, VesselTypeResult, classify_day_shapes
 from infrared_detector import InfraredDetection, detect_infrared_objects
 from lights import VesselTypeResult as LightsVesselTypeResult
 from lights import classify_lights
@@ -165,7 +165,7 @@ class VideoAnalyticsPipeline:
         boat_confidence: Optional[float] = None,
         classifier_confidence: Optional[float] = None,
         skip_classification: bool = False,
-        bbox_scale: Tuple[float, float, float, float] = (1.0, 1.0, 1.0, 1.0),
+        bbox_scale: Tuple[float, float, float, float] = (1.0, 5.0, 1.0, 1.0),
     ) -> PipelineResult:
         """
         Обработать изображение через полный конвейер.
@@ -285,7 +285,7 @@ class VideoAnalyticsPipeline:
         classifier_confidence: Optional[float] = None,
         skip_classification: bool = False,
         bbox_offset: Tuple[int, int] = (0, 0),
-        bbox_scale: Tuple[float, float, float, float] = (1.0, 1.5, 1.0, 1.0),
+        bbox_scale: Tuple[float, float, float, float] = (1.0, 5.0, 1.0, 1.0),
     ) -> PipelineResult:
         """
         Обработать ночной режим с раздельными ИК и видимыми изображениями.
@@ -446,16 +446,31 @@ class VideoAnalyticsPipeline:
         return result
 
 
+# Цветовая схема для различных типов судов (BGR)
+CLASS_COLORS = {
+    VesselType.NUC: (0, 0, 255),        # Красный
+    VesselType.RAM: (255, 0, 255),      # Маджента
+    VesselType.CBD: (0, 165, 255),      # Оранжевый
+    VesselType.FISHING: (0, 255, 255),  # Жёлтый
+    VesselType.TRAWLING: (0, 255, 128), # Лаймовый
+    VesselType.SAIL: (0, 255, 0),       # Зелёный
+    VesselType.MECHANICAL: (255, 200, 0), # Голубой
+    "MECH": (255, 200, 0),              # Сокращение для механического
+    "SAIL": (0, 255, 0),                # Сокращение для парусного
+}
+
+
 def draw_results(
     image: np.ndarray,
     result: PipelineResult,
     thickness: int = 2,
-    font_scale: float = 0.8,
+    font_scale: float = 0.6,
 ) -> np.ndarray:
     """
     Нарисовать визуализацию результатов конвейера на исходном изображении.
 
     Рисует ограничивающие прямоугольники с типами судов для каждого обнаруженного судна.
+    Метки отображаются внутри рамки сбоку для лучшей видимости при расширенных bbox.
 
     Args:
         image: Исходное изображение (BGR).
@@ -481,28 +496,41 @@ def draw_results(
         label = boat.final_vessel_type
 
         # Определить цвет на основе типа
+        color = CLASS_COLORS.get(label, (255, 255, 255))  # Белый по умолчанию
+
+        # Переопределить цвет, если есть специфический цвет от сигнала
         if boat.day_shapes_status and boat.day_shapes_status.is_known_signal:
             color = boat.day_shapes_status.color
         elif boat.lights_status and boat.lights_status.is_known_signal:
             color = boat.lights_status.color
-        elif label == "SAIL":
-            color = (0, 255, 0)  # Зелёный для парусного
-        else:
-            color = (255, 200, 0)  # Светло-синий для механического (BGR)
 
         # Нарисовать ограничивающий прямоугольник
         cv2.rectangle(output, (x1, y1), (x2, y2), color, thickness)
 
-        # Нарисовать метку
+        # Подготовить текст метки
+        full_label = f"{label} #{boat.boat_id}"
+
+        # Получить размер текста
         (label_w, label_h), baseline = cv2.getTextSize(
-            label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness
+            full_label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness
         )
+
+        # Рассчитать позицию метки (внутри рамки, сверху слева с небольшим отступом)
+        text_x = x1 + thickness + 2
+        text_y = y1 + label_h + thickness + 2
+
+        # Проверить, не выходит ли метка за нижнюю границу рамки
+        if text_y > y2:
+            text_y = y2 - baseline
 
         # Нарисовать фон метки
         cv2.rectangle(
             output,
-            (x1, y1 - label_h - baseline - 5),
-            (x1 + label_w, y1),
+            (x1, y1),
+            (
+                x1 + label_w + thickness * 2 + 4,
+                y1 + label_h + baseline + thickness * 2 + 4,
+            ),
             color,
             -1,
         )
@@ -510,18 +538,12 @@ def draw_results(
         # Нарисовать текст метки
         cv2.putText(
             output,
-            label,
-            (x1, y1 - baseline),
+            full_label,
+            (text_x, text_y),
             cv2.FONT_HERSHEY_SIMPLEX,
             font_scale,
-            (255, 255, 255),
+            (255, 255, 255) if sum(color) < 400 else (0, 0, 0),  # Контрастный текст
             thickness,
         )
-
-    # Нарисовать инфракрасные обнаружения (ночной режим)
-    if result.is_night and result.infrared_detections:
-        for ir_det in result.infrared_detections:
-            x1, y1, x2, y2 = ir_det.bbox
-            cv2.rectangle(output, (x1, y1), (x2, y2), (0, 255, 255), 1)  # Циан
 
     return output
