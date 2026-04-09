@@ -11,13 +11,49 @@ from typing import List, Optional, Tuple, Union
 import cv2
 import numpy as np
 
-from binary_classifier import BinaryClassifier, ClassificationResult
+from binary_classifier import BinaryClassifier
 from boat_detector import BoatDetection, detect_and_crop_boats
 from config import Config
-from day_shapes import VesselType, VesselTypeResult, classify_day_shapes
+from core_types import CLASS_COLORS
+from day_shapes import VesselTypeResult, classify_day_shapes
 from infrared_detector import InfraredDetection, detect_infrared_objects
 from lights import VesselTypeResult as LightsVesselTypeResult
 from lights import classify_lights
+
+
+def expand_bbox(
+    bbox: List[int],
+    image_shape: Tuple[int, ...],
+    bbox_scale: Tuple[float, float, float, float],
+) -> List[int]:
+    """
+    Расширить ограничивающий прямоугольник на заданные коэффициенты масштабирования.
+
+    Args:
+        bbox: Исходный bbox [x1, y1, x2, y2].
+        image_shape: Размеры изображения (height, width, ...).
+        bbox_scale: Коэффициенты масштабирования (left, top, right, bottom).
+
+    Returns:
+        Расширенный bbox [x1, y1, x2, y2].
+    """
+    x1, y1, x2, y2 = bbox
+    cx = (x1 + x2) / 2
+    cy = (y1 + y2) / 2
+    w = x2 - x1
+    h = y2 - y1
+
+    new_w_left = w * bbox_scale[0]
+    new_h_top = h * bbox_scale[1]
+    new_w_right = w * bbox_scale[2]
+    new_h_bottom = h * bbox_scale[3]
+
+    exp_x1 = int(max(0, cx - new_w_left / 2))
+    exp_y1 = int(max(0, cy - new_h_top / 2))
+    exp_x2 = int(min(image_shape[1], cx + new_w_right / 2))
+    exp_y2 = int(min(image_shape[0], cy + new_h_bottom / 2))
+
+    return [exp_x1, exp_y1, exp_x2, exp_y2]
 
 
 @dataclass
@@ -52,7 +88,7 @@ class BoatAnalysisResult:
         1. NUC (Не может управляться)
         2. RAM (Ограничено в возможности маневрировать)
         3. CBD (Стеснено своей осадкой)
-        4. Занято ловом рыбы/Траление
+        4. Занято ловом рыбы
         5. Парусное / Механическое (от бинарного классификатора)
         """
         # Дневные фигуры имеют наивысший приоритет
@@ -205,26 +241,9 @@ class VideoAnalyticsPipeline:
         # Шаг 2: Бинарная классификация для каждого судна → тип судна
         boats = []
         for i, boat_det in enumerate(boat_detections):
-            # Исходный bbox от детектора
-            x1, y1, x2, y2 = boat_det.bbox
-
-            # Вычислить центр и размеры
-            cx = (x1 + x2) / 2
-            cy = (y1 + y2) / 2
-            w = x2 - x1
-            h = y2 - y1
-
-            # Расширить bbox с использованием коэффициентов масштабирования
-            new_w = w * bbox_scale[0]  # слева
-            new_h_top = h * bbox_scale[1]  # сверху
-            new_w_right = w * bbox_scale[2]  # справа
-            new_h_bottom = h * bbox_scale[3]  # снизу
-
             # Рассчитать расширенный bbox
-            exp_x1 = int(max(0, cx - new_w / 2))
-            exp_y1 = int(max(0, cy - new_h_top / 2))
-            exp_x2 = int(min(image.shape[1], cx + new_w_right / 2))
-            exp_y2 = int(min(image.shape[0], cy + new_h_bottom / 2))
+            exp_bbox = expand_bbox(boat_det.bbox, image.shape, bbox_scale)
+            exp_x1, exp_y1, exp_x2, exp_y2 = exp_bbox
 
             # Вырезать с расширенным bbox
             crop = image[exp_y1:exp_y2, exp_x1:exp_x2]
@@ -232,7 +251,7 @@ class VideoAnalyticsPipeline:
             boat_result = BoatAnalysisResult(
                 boat_id=i,
                 crop=crop,
-                bbox=[exp_x1, exp_y1, exp_x2, exp_y2],
+                bbox=exp_bbox,
                 detection_confidence=boat_det.confidence,
             )
 
@@ -340,7 +359,6 @@ class VideoAnalyticsPipeline:
             )
 
         # Шаг 1: Обнаружить суда на ИК-изображении с помощью модели infrared.pt
-        from infrared_detector import InfraredDetection
 
         ir_detections_raw = detect_infrared_objects(
             image=ir_image,
@@ -365,26 +383,9 @@ class VideoAnalyticsPipeline:
         # Шаг 2: Бинарная классификация на ИК-вырезах, огни на видимых вырезах
         boats = []
         for i, boat_det in enumerate(boat_detections):
-            # Исходный bbox от ИК-обнаружения
-            x1, y1, x2, y2 = boat_det.bbox
-
-            # Вычислить центр и размеры
-            cx = (x1 + x2) / 2
-            cy = (y1 + y2) / 2
-            w = x2 - x1
-            h = y2 - y1
-
-            # Расширить bbox с использованием коэффициентов масштабирования
-            new_w = w * bbox_scale[0]  # слева
-            new_h_top = h * bbox_scale[1]  # сверху (расширяем вверх для мачты/огней)
-            new_w_right = w * bbox_scale[2]  # справа
-            new_h_bottom = h * bbox_scale[3]  # снизу
-
             # Рассчитать расширенный bbox (расширяем вверх и немного наружу)
-            exp_x1 = int(max(0, cx - new_w / 2))
-            exp_y1 = int(max(0, cy - new_h_top / 2))
-            exp_x2 = int(min(ir_image.shape[1], cx + new_w_right / 2))
-            exp_y2 = int(min(ir_image.shape[0], cy + new_h_bottom / 2))
+            exp_bbox = expand_bbox(boat_det.bbox, ir_image.shape, bbox_scale)
+            exp_x1, exp_y1, exp_x2, exp_y2 = exp_bbox
 
             # Скорректировать для выравнивания видимого изображения
             adj_bbox = [
@@ -405,12 +406,7 @@ class VideoAnalyticsPipeline:
             boat_result = BoatAnalysisResult(
                 boat_id=i,
                 crop=adj_crop,  # видимый вырез для огней
-                bbox=[
-                    exp_x1,
-                    exp_y1,
-                    exp_x2,
-                    exp_y2,
-                ],  # расширенные ИК-координаты для рисования на ИК-изображении
+                bbox=exp_bbox,  # расширенные ИК-координаты для рисования на ИК-изображении
                 detection_confidence=boat_det.confidence,
             )
 
@@ -444,20 +440,6 @@ class VideoAnalyticsPipeline:
                     boat.lights_status = lights_statuses[0]
 
         return result
-
-
-# Цветовая схема для различных типов судов (BGR)
-CLASS_COLORS = {
-    VesselType.NUC: (0, 0, 255),        # Красный
-    VesselType.RAM: (255, 0, 255),      # Маджента
-    VesselType.CBD: (0, 165, 255),      # Оранжевый
-    VesselType.FISHING: (0, 255, 255),  # Жёлтый
-    VesselType.TRAWLING: (0, 255, 128), # Лаймовый
-    VesselType.SAIL: (0, 255, 0),       # Зелёный
-    VesselType.MECHANICAL: (255, 200, 0), # Голубой
-    "MECH": (255, 200, 0),              # Сокращение для механического
-    "SAIL": (0, 255, 0),                # Сокращение для парусного
-}
 
 
 def draw_results(

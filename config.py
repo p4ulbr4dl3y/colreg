@@ -33,28 +33,28 @@ class Config:
     # Обнаружение судов (YOLO)
     boat_detector: ModelConfig = field(
         default_factory=lambda: ModelConfig(
-            path="models/yolo11n.pt", confidence_threshold=0.5
+            path="models/boat_detector.pt", confidence_threshold=0.5
         )
     )
 
     # Бинарный классификатор (парусное vs непарусное)
     binary_classifier: ModelConfig = field(
         default_factory=lambda: ModelConfig(
-            path="models/binary-classifier.pth", confidence_threshold=0.5
+            path="models/binary_classifier.pth", confidence_threshold=0.5
         )
     )
 
     # Инфракрасное обнаружение (ночной режим)
     infrared_detector: ModelConfig = field(
         default_factory=lambda: ModelConfig(
-            path="models/thermal_best.pt", confidence_threshold=0.25
+            path="models/infrared_detector.pt", confidence_threshold=0.25
         )
     )
 
     # Классификация дневных фигур
     day_shapes: ModelConfig = field(
         default_factory=lambda: ModelConfig(
-            path="models/day-shapes.pt", confidence_threshold=0.5
+            path="models/day_shapes.pt", confidence_threshold=0.5
         )
     )
 

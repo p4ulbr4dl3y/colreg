@@ -14,19 +14,7 @@ import numpy as np
 from ultralytics import YOLO
 
 from config import Config
-
-
-# Типы судов МППСС
-class VesselType:
-    """Типы судов согласно МППСС-72."""
-
-    MECHANICAL = "MECH"
-    SAIL = "SAIL"
-    FISHING = "FISH"
-    NUC = "NUC"
-    RAM = "RAM"
-    CBD = "CBD"
-    TRAWLING = "TRAWL"
+from core_types import VesselType
 
 
 @dataclass
@@ -76,12 +64,6 @@ LIGHTS_RULES = {
         "sequence": [1, 0],
         "color": (0, 255, 255),  # Циан
         "description": "Занято ловом рыбы - красный-белый",
-    },
-    # Траление - Зелёный, Белый
-    VesselType.TRAWLING: {
-        "sequence": [2, 0],
-        "color": (0, 255, 128),  # Лаймовый
-        "description": "Занято тралением - зелёный-белый",
     },
     # CBD: Стеснено своей осадкой - Красный, Красный, Красный
     VesselType.CBD: {

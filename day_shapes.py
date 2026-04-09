@@ -14,19 +14,7 @@ import numpy as np
 from ultralytics import YOLO
 
 from config import Config
-
-
-# Типы судов МППСС
-class VesselType:
-    """Типы судов согласно МППСС-72."""
-
-    MECHANICAL = "MECH"
-    SAIL = "SAIL"
-    FISHING = "FISH"
-    NUC = "NUC"
-    RAM = "RAM"
-    CBD = "CBD"
-    TRAWLING = "TRAWL"
+from core_types import VesselType
 
 
 @dataclass

@@ -7,7 +7,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import cv2
 import numpy as np
@@ -101,21 +101,31 @@ class BinaryClassifier:
             "b7": models.efficientnet_b7,
         }
 
-        version = checkpoint.get("efficientnet_version", "b0")
+        # Если чекпоинт - это OrderedDict (только веса), используем b0 по умолчанию
+        if (
+            isinstance(checkpoint, (dict, torch.nn.modules.container.Sequential))
+            and "model_state_dict" not in checkpoint
+        ):
+            state_dict = checkpoint
+            version = "b0"
+            class_names = ["not_sailboat", "sailboat"]
+        else:
+            state_dict = checkpoint.get("model_state_dict", checkpoint)
+            version = checkpoint.get("efficientnet_version", "b0")
+            class_names = checkpoint.get("class_names", ["not_sailboat", "sailboat"])
+
         model = model_variants[version](weights=None)
 
         # Заменить головку классификатора
         num_features = model.classifier[1].in_features
         model.classifier = nn.Sequential(
-            nn.Dropout(p=0.3, inplace=True), nn.Linear(num_features, 2)
+            nn.Dropout(p=0.3, inplace=True), nn.Linear(num_features, len(class_names))
         )
 
         # Загрузить веса
-        model.load_state_dict(checkpoint["model_state_dict"])
+        model.load_state_dict(state_dict)
         model = model.to(self.device)
         model.eval()
-
-        class_names = checkpoint.get("class_names", ["not_sailboat", "sailboat"])
 
         return model, class_names
 

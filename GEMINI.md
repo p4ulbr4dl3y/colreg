@@ -15,7 +15,7 @@ The system follows a hierarchical classification logic to determine the `final_v
 1.  **NUC** (Not Under Command) - Highest priority.
 2.  **RAM** (Restricted in Ability to Maneuver).
 3.  **CBD** (Constrained by Draught).
-4.  **FISHING / TRAWLING**.
+4.  **FISHING**.
 5.  **SAIL / MECH** (Determined by binary classification) - Lowest priority.
 
 ---
