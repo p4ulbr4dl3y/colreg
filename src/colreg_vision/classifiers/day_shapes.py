@@ -1,8 +1,8 @@
 """
-Модуль классификации навигационных огней.
+Модуль классификации дневных фигур.
 
-Классифицирует тип судна по навигационным огням.
-Реализует правила МППСС для ночных сигналов.
+Классифицирует тип судна по дневным фигурам (шары, конусы, ромбы, цилиндры).
+Реализует правила МППСС для дневных сигналов.
 """
 
 from dataclasses import dataclass
@@ -13,16 +13,16 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
-from config import Config
-from core_types import VesselType
+from colreg_vision.core.config import Config
+from colreg_vision.core.types import VesselType
 
 
 @dataclass
-class LightDetection:
-    """Представляет обнаруженный навигационный огонь."""
+class DayShapeDetection:
+    """Представляет обнаруженную дневную фигуру."""
 
     class_id: int
-    class_name: str  # 'white', 'red', 'green'
+    class_name: str
     bbox: List[int]  # [x1, y1, x2, y2]
     center_x: float
     center_y: float
@@ -31,12 +31,12 @@ class LightDetection:
 
 @dataclass
 class VesselTypeResult:
-    """Классифицированный тип судна по навигационным огням."""
+    """Классифицированный тип судна по дневным фигурам."""
 
     vessel_type: str  # Тип судна согласно МППСС-72
     bbox: List[int]  # Объединённый ограничивающий прямоугольник для группы
     color: Tuple[int, int, int]  # Цвет BGR для визуализации
-    lights: List[LightDetection]  # Составляющие огни
+    shapes: List[DayShapeDetection]  # Составляющие фигуры
     sequence: List[int]  # Последовательность классов сверху вниз
 
     @property
@@ -45,54 +45,54 @@ class VesselTypeResult:
 
     @property
     def confidence(self) -> float:
-        """Средняя уверенность составляющих огней."""
-        if not self.lights:
+        """Средняя уверенность составляющих фигур."""
+        if not self.shapes:
             return 0.0
-        return sum(light.confidence for light in self.lights) / len(self.lights)
+        return sum(shape.confidence for shape in self.shapes) / len(self.shapes)
 
 
-# Правила навигационных огней МППСС → типы судов
+# Правила дневных фигур МППСС → типы судов
 # Цвета в формате BGR, выбраны для видимости на дневных и ночных изображениях
-LIGHTS_RULES = {
-    # NUC: Не может управляться - Красный, Красный
+DAY_SHAPES_RULES = {
+    # NUC: Не может управляться - Шар, Шар
     VesselType.NUC: {
-        "sequence": [1, 1],
+        "sequence": [0, 0],
         "color": (0, 0, 255),  # Красный
-        "description": "Не может управляться - 2 красных огня",
+        "description": "Не может управляться - 2 шара",
     },
-    # RAM: Ограничено в возможности маневрировать - Красный, Белый, Красный
+    # RAM: Ограничено в возможности маневрировать - Шар, Ромб, Шар
     VesselType.RAM: {
-        "sequence": [1, 0, 1],
+        "sequence": [0, 3, 0],
         "color": (170, 255, 170),  # Маджента/Фиолетовый
-        "description": "Ограничено в возможности маневрировать - красный-белый-красный",
+        "description": "Ограничено в возможности маневрировать - шар-ромб-шар",
     },
-    # Занято ловом рыбы (не траление) - Красный, Белый
-    VesselType.FISHING: {
-        "sequence": [1, 0],
-        "color": (0, 255, 255),  # Циан
-        "description": "Занято ловом рыбы - красный-белый",
-    },
-    # CBD: Стеснено своей осадкой - Красный, Красный, Красный
+    # CBD: Стеснено своей осадкой - Цилиндр
     VesselType.CBD: {
-        "sequence": [1, 1, 1],
+        "sequence": [4],
         "color": (0, 165, 255),  # Оранжевый
-        "description": "Стеснено своей осадкой - 3 красных огня",
+        "description": "Стеснено своей осадкой - цилиндр",
+    },
+    # Занято ловом рыбы - Конус вниз, Конус вверх (вершинами вместе)
+    VesselType.FISHING: {
+        "sequence": [2, 1],  # cone_down, cone_up
+        "color": (0, 255, 255),  # Циан
+        "description": "Занято ловом рыбы - конусы вершинами вместе",
     },
 }
 
 
 def _group_by_mast(
-    detections: List[LightDetection], x_tolerance: int = 40
-) -> List[List[LightDetection]]:
+    detections: List[DayShapeDetection], x_tolerance: int = 40
+) -> List[List[DayShapeDetection]]:
     """
     Сгруппировать обнаружения по мачте (вертикальное выравнивание).
 
     Args:
-        detections: Список обнаруженных огней.
+        detections: Список обнаруженных фигур.
         x_tolerance: Максимальное горизонтальное расстояние для считания одной мачтой.
 
     Returns:
-        Список групп, каждая группа содержит огни на одной мачте.
+        Список групп, каждая группа содержит фигуры на одной мачте.
     """
     if not detections:
         return []
@@ -120,13 +120,13 @@ def _group_by_mast(
 
 
 def _classify_group(
-    group: List[LightDetection], rules: dict = LIGHTS_RULES
+    group: List[DayShapeDetection], rules: dict = DAY_SHAPES_RULES
 ) -> VesselTypeResult:
     """
-    Классифицировать тип судна по последовательности огней.
+    Классифицировать тип судна по последовательности фигур.
 
     Args:
-        group: Список огней на одной мачте.
+        group: Список фигур на одной мачте.
         rules: Словарь правил МППСС.
 
     Returns:
@@ -155,24 +155,26 @@ def _classify_group(
         vessel_type=vessel_type,
         bbox=[x1_min, y1_min, x2_max, y2_max],
         color=color,
-        lights=group,
+        shapes=group,
         sequence=sequence,
     )
 
 
-def classify_lights(
+def classify_day_shapes(
     image: Union[str, Path, np.ndarray],
     config: Optional[Config] = None,
     confidence_threshold: Optional[float] = None,
     model_path: Optional[Union[str, Path]] = None,
     x_tolerance: Optional[int] = None,
     return_detections: bool = False,
-) -> Union[List[VesselTypeResult], Tuple[List[VesselTypeResult], List[LightDetection]]]:
+) -> Union[
+    List[VesselTypeResult], Tuple[List[VesselTypeResult], List[DayShapeDetection]]
+]:
     """
-    Классифицировать тип судна по навигационным огням.
+    Классифицировать тип судна по дневным фигурам.
 
     Эта функция не зависит от конвейера — принимает любое изображение и возвращает
-    классифицированные типы судов согласно сигналам навигационных огней МППСС.
+    классифицированные типы судов согласно дневным сигналам МППСС.
 
     Args:
         image: Входное изображение как путь к файлу или numpy массив (BGR).
@@ -184,20 +186,20 @@ def classify_lights(
 
     Returns:
         Список объектов VesselTypeResult. Если return_detections=True,
-        также возвращает список сырых объектов LightDetection.
+        также возвращает список сырых объектов DayShapeDetection.
 
     Пример:
-        >>> image = cv2.imread('night_vessel.png')
-        >>> statuses = classify_lights(image)
-        >>> for status in statuses:
-        ...     print(f"Тип судна: {status.vessel_type}")
+        >>> image = cv2.imread('vessel.png')
+        >>> types = classify_day_shapes(image)
+        >>> for vtype in types:
+        ...     print(f"Тип судна: {vtype.vessel_type}")
     """
     if config is None:
         config = Config()
 
     # Разрешить путь к модели
     if model_path is None:
-        model_path = config.get_model_path("lights")
+        model_path = config.get_model_path("day_shapes")
     else:
         model_path = Path(model_path)
         if not model_path.is_absolute():
@@ -215,7 +217,7 @@ def classify_lights(
     # Загрузить модель и выполнить инференс
     model = YOLO(str(model_path))
     results = model(
-        image, conf=confidence_threshold or config.lights.confidence_threshold
+        image, conf=confidence_threshold or config.day_shapes.confidence_threshold
     )
     result = results[0]
 
@@ -229,9 +231,11 @@ def classify_lights(
             x1, y1, x2, y2 = map(int, boxes.xyxy[i])
 
             detections.append(
-                LightDetection(
+                DayShapeDetection(
                     class_id=class_id,
-                    class_name=config.lights_classes.get(class_id, f"class_{class_id}"),
+                    class_name=config.day_shapes_classes.get(
+                        class_id, f"class_{class_id}"
+                    ),
                     bbox=[x1, y1, x2, y2],
                     center_x=(x1 + x2) / 2,
                     center_y=(y1 + y2) / 2,
@@ -241,8 +245,8 @@ def classify_lights(
 
     # Сгруппировать по мачте и классифицировать
     groups = _group_by_mast(detections, x_tolerance or config.grouping_x_tolerance)
-    vessel_types = [_classify_group(group) for group in groups]
+    statuses = [_classify_group(group) for group in groups]
 
     if return_detections:
-        return vessel_types, detections
-    return vessel_types
+        return statuses, detections
+    return statuses

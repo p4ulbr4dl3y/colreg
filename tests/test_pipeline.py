@@ -1,7 +1,7 @@
 import pytest
 import os
 import cv2
-from pipeline import VideoAnalyticsPipeline
+from colreg_vision.pipeline import VideoAnalyticsPipeline
 
 
 @pytest.fixture(scope="module")

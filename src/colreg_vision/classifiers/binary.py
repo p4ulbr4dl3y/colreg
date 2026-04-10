@@ -16,7 +16,7 @@ import torch.nn as nn
 from PIL import Image
 from torchvision import models, transforms
 
-from config import Config
+from colreg_vision.core.config import Config
 
 
 @dataclass

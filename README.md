@@ -56,7 +56,7 @@ pip install -r requirements.txt
 ### Запуск модуля технического зрения (Vision Node)
 Узел инициализирует модели и подключается к указанному MQTT-брокеру:
 ```bash
-python mqtt_node.py
+PYTHONPATH=src python scripts/mqtt_node.py
 ```
 
 ### Протокол связи
@@ -91,7 +91,7 @@ python mqtt_node.py
 }
 ```
 
-*Для локального тестирования интеграции запустите `python mqtt_simulate.py` при активном узле `mqtt_node.py`.*
+*Для локального тестирования интеграции запустите `PYTHONPATH=src python scripts/mqtt_simulate.py` при активном узле `scripts/mqtt_node.py`.*
 
 ---
 
@@ -100,7 +100,7 @@ python mqtt_node.py
 ### Анализ в дневном режиме
 ```python
 import cv2
-from pipeline import VideoAnalyticsPipeline
+from colreg_vision.pipeline import VideoAnalyticsPipeline
 
 pipeline = VideoAnalyticsPipeline()
 image = cv2.imread('frame.jpg')
@@ -126,18 +126,33 @@ result = pipeline.process_night(ir_image, visible_image)
 
 ```text
 .
-├── config.py                # Централизованная конфигурация (пути к моделям, пороги)
-├── core_types.py            # Общие структуры данных и константы (VesselType)
-├── pipeline.py              # Основной оркестратор и логика масштабирования BBox
-├── boat_detector.py         # Обнаружение судов (YOLO)
-├── binary_classifier.py     # Бинарная классификация (Парусное/Механическое)
-├── day_shapes.py            # Логика распознавания дневных фигур МППСС
-├── lights.py                # Логика распознавания навигационных огней МППСС
-├── mqtt_node.py             # MQTT-интерфейс для продакшена
-├── mqtt_simulate.py         # Скрипт тестирования MQTT-интеграции
-├── tests/                   # Набор автоматизированных тестов (Pytest)
-└── models/                  # Предобученные веса моделей (.pt / .pth)
-    └── unused/              # Устаревшие/неиспользуемые модели
+├── src/                          # Исходный код пакета
+│   └── colreg_vision/
+│       ├── __init__.py           
+│       ├── core/                 # Базовые вещи
+│       │   ├── config.py
+│       │   └── types.py          # Общие типы
+│       ├── detectors/            # Все, что ищет объекты
+│       │   ├── boat.py           # Обнаружение судов (YOLO)
+│       │   └── infrared.py       
+│       ├── classifiers/          # Все, что классифицирует
+│       │   ├── binary.py         # Бинарная классификация
+│       │   ├── day_shapes.py     # Дневные фигуры МППСС
+│       │   └── lights.py         # Навигационные огни МППСС
+│       └── pipeline.py           # Основной оркестратор
+│
+├── scripts/                      # Скрипты запуска и интеграции
+│   ├── mqtt_node.py              
+│   └── mqtt_simulate.py          
+│
+├── tests/                        # Набор автоматизированных тестов (Pytest)
+│   └── test_pipeline.py
+│
+├── models/                       # Предобученные веса моделей (.pt / .pth)
+│   └── unused/                   # Устаревшие/неиспользуемые модели
+├── test_images/                  # Данные для тестов
+├── requirements.txt
+└── README.md
 ```
 
 ---
@@ -148,5 +163,5 @@ result = pipeline.process_night(ir_image, visible_image)
 
 ```bash
 # Запуск всех тестов
-pytest tests/test_pipeline.py -v
+PYTHONPATH=src pytest tests/test_pipeline.py -v
 ```

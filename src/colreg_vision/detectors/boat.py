@@ -12,7 +12,7 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
-from config import Config
+from colreg_vision.core.config import Config
 
 
 @dataclass

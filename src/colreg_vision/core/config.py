@@ -26,7 +26,9 @@ class Config:
     """
 
     # Базовая директория (video-analytics)
-    base_dir: Path = field(default_factory=lambda: Path(__file__).parent)
+    base_dir: Path = field(
+        default_factory=lambda: Path(__file__).resolve().parent.parent.parent.parent
+    )
 
     # ==================== ПУТИ К МОДЕЛЯМ ====================
 

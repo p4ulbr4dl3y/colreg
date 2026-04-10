@@ -6,7 +6,7 @@ from typing import Any, Dict
 import cv2
 import paho.mqtt.client as mqtt
 
-from pipeline import VideoAnalyticsPipeline
+from colreg_vision.pipeline import VideoAnalyticsPipeline
 
 # Настройка логирования
 logging.basicConfig(
