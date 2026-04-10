@@ -109,6 +109,15 @@ class Config:
         default_factory=lambda: [0.229, 0.224, 0.225]
     )
 
+    # ==================== ОБЩИЕ НАСТРОЙКИ ====================
+
+    # Устройство для инференса ('cuda', 'cpu', 'mps' или None для автоопределения)
+    device: Optional[str] = None
+
+    # Использовать ли трекер для судов (BoT-SORT / ByteTrack)
+    use_tracker: bool = True
+    tracker_type: str = "botsort.yaml"  # botsort.yaml или bytetrack.yaml
+
     def get_model_path(self, model_name: str) -> Path:
         """Получить абсолютный путь для модели."""
         model_config = getattr(self, model_name)

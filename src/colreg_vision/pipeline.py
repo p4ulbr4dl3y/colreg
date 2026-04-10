@@ -10,6 +10,7 @@ from typing import List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
+from ultralytics import YOLO
 
 from colreg_vision.classifiers.binary import BinaryClassifier
 from colreg_vision.detectors.boat import BoatDetection, detect_and_crop_boats
@@ -146,15 +147,17 @@ class PipelineResult:
     @property
     def sailboat_count(self) -> int:
         """Подсчитать парусные суда (для обратной совместимости)."""
-        return sum(1 for b in self.boats if b.vessel_type == "Парусное судно")
+        from colreg_vision.core.types import VesselType
+        return sum(1 for b in self.boats if b.vessel_type == VesselType.SAIL)
 
     @property
     def mechanical_count(self) -> int:
         """Подсчитать механические суда (тип по умолчанию)."""
+        from colreg_vision.core.types import VesselType
         return sum(
             1
             for b in self.boats
-            if b.final_vessel_type == "Судно с механическим двигателем"
+            if b.final_vessel_type == VesselType.MECHANICAL
         )
 
 
@@ -202,6 +205,12 @@ class VideoAnalyticsPipeline:
         self._classifier = None
         self._classifier_device = classifier_device
 
+        # Ленивая загрузка моделей YOLO
+        self._boat_detector = None
+        self._infrared_detector = None
+        self._day_shapes_model = None
+        self._lights_model = None
+
     @property
     def classifier(self) -> BinaryClassifier:
         """Ленивая загрузка бинарного классификатора."""
@@ -210,6 +219,38 @@ class VideoAnalyticsPipeline:
                 config=self.config, device=self._classifier_device
             )
         return self._classifier
+
+    @property
+    def boat_detector(self) -> YOLO:
+        """Ленивая загрузка детектора судов."""
+        if self._boat_detector is None:
+            self._boat_detector = YOLO(str(self.config.get_model_path("boat_detector")))
+        return self._boat_detector
+
+    @property
+    def infrared_detector(self) -> YOLO:
+        """Ленивая загрузка ИК-детектора."""
+        if self._infrared_detector is None:
+            self._infrared_detector = YOLO(
+                str(self.config.get_model_path("infrared_detector"))
+            )
+        return self._infrared_detector
+
+    @property
+    def day_shapes_model(self) -> YOLO:
+        """Ленивая загрузка классификатора дневных фигур."""
+        if self._day_shapes_model is None:
+            self._day_shapes_model = YOLO(
+                str(self.config.get_model_path("day_shapes"))
+            )
+        return self._day_shapes_model
+
+    @property
+    def lights_model(self) -> YOLO:
+        """Ленивая загрузка классификатора огней."""
+        if self._lights_model is None:
+            self._lights_model = YOLO(str(self.config.get_model_path("lights")))
+        return self._lights_model
 
     def process(
         self,
@@ -252,12 +293,18 @@ class VideoAnalyticsPipeline:
 
         # Шаг 1: Обнаружить и кадрировать суда
         boat_detections = detect_and_crop_boats(
-            image=image, config=self.config, confidence_threshold=boat_confidence
+            image=image,
+            config=self.config,
+            confidence_threshold=boat_confidence,
+            model=self.boat_detector,
+            use_tracker=self.config.use_tracker,
         )
 
-        # Шаг 2: Бинарная классификация для каждого судна → тип судна
+        # Шаг 2: Создать объекты BoatAnalysisResult и собрать кропы для классификации
         boats = []
-        for i, boat_det in enumerate(boat_detections):
+        crops_for_classification = []
+
+        for boat_det in boat_detections:
             # Рассчитать расширенный bbox
             exp_bbox = expand_bbox(boat_det.bbox, image.shape, bbox_scale)
             exp_x1, exp_y1, exp_x2, exp_y2 = exp_bbox
@@ -266,41 +313,47 @@ class VideoAnalyticsPipeline:
             crop = image[exp_y1:exp_y2, exp_x1:exp_x2]
 
             boat_result = BoatAnalysisResult(
-                boat_id=i,
+                boat_id=boat_det.crop_id,
                 crop=crop,
                 bbox=exp_bbox,
                 detection_confidence=boat_det.confidence,
             )
+            boats.append(boat_result)
+            crops_for_classification.append(boat_det.crop)
 
-            # Бинарный классификатор: sailboat vs not_sailboat → тип судна
-            if not skip_classification:
-                class_result = self.classifier.classify(boat_det.crop)
+        # Шаг 3: Пакетная бинарная классификация (Batch Inference)
+        if not skip_classification and crops_for_classification:
+            class_results = self.classifier.classify_batch(crops_for_classification)
+            for boat, class_result in zip(boats, class_results):
                 if class_result.is_sailboat:
-                    boat_result.vessel_type = "SAIL"
-                    boat_result.vessel_type_confidence = (
-                        class_result.sailboat_probability * 100
-                    )
+                    boat.vessel_type = "SAIL"
+                    boat.vessel_type_confidence = class_result.sailboat_probability * 100
                 else:
-                    boat_result.vessel_type = "MECH"
-                    boat_result.vessel_type_confidence = (
+                    boat.vessel_type = "MECH"
+                    boat.vessel_type_confidence = (
                         class_result.not_sailboat_probability * 100
                     )
-
-            boats.append(boat_result)
 
         # Инициализировать результат
         result = PipelineResult(image=image, is_night=is_night, boats=boats)
 
-        # Шаг 3: Ночной режим - инфракрасное обнаружение и огни
+        # Шаг 4: Ночной режим - инфракрасное обнаружение и огни
         if is_night:
             # Инфракрасное обнаружение на полном изображении
             result.infrared_detections = detect_infrared_objects(
-                image=image, config=self.config
+                image=image,
+                config=self.config,
+                model=self.infrared_detector,
+                use_tracker=self.config.use_tracker,
             )
 
             # Классификация огней на каждом вырезе судна
             for boat in boats:
-                lights_statuses = classify_lights(image=boat.crop, config=self.config)
+                if boat.crop.size == 0:
+                    continue
+                lights_statuses = classify_lights(
+                    image=boat.crop, config=self.config, model=self.lights_model
+                )
 
                 # Фильтрация огней по размеру
                 valid_statuses = []
@@ -323,7 +376,9 @@ class VideoAnalyticsPipeline:
         # Шаг 4: Дневной режим - дневные фигуры на каждом вырезе судна
         else:
             for boat in boats:
-                day_statuses = classify_day_shapes(image=boat.crop, config=self.config)
+                day_statuses = classify_day_shapes(
+                    image=boat.crop, config=self.config, model=self.day_shapes_model
+                )
 
                 # Фильтрация фигур по размеру
                 valid_statuses = []
@@ -418,11 +473,13 @@ class VideoAnalyticsPipeline:
             image=ir_image,
             config=self.config,
             confidence_threshold=boat_confidence,
+            model=self.infrared_detector,
+            use_tracker=self.config.use_tracker,
         )
 
         # Преобразовать InfraredDetection в BoatDetection для совместимости
         boat_detections = []
-        for i, ir_det in enumerate(ir_detections_raw):
+        for ir_det in ir_detections_raw:
             x1, y1, x2, y2 = ir_det.bbox
             crop = ir_image[y1:y2, x1:x2].copy()
             boat_detections.append(
@@ -430,13 +487,15 @@ class VideoAnalyticsPipeline:
                     crop=crop,
                     bbox=ir_det.bbox,
                     confidence=ir_det.confidence,
-                    crop_id=i,
+                    crop_id=ir_det.track_id,
                 )
             )
 
-        # Шаг 2: Бинарная классификация на ИК-вырезах, огни на видимых вырезах
+        # Шаг 2: Создать объекты BoatAnalysisResult и собрать кропы для классификации
         boats = []
-        for i, boat_det in enumerate(boat_detections):
+        crops_for_classification = []
+
+        for boat_det in boat_detections:
             # Рассчитать расширенный bbox (расширяем вверх и немного наружу)
             exp_bbox = expand_bbox(boat_det.bbox, ir_image.shape, bbox_scale)
             exp_x1, exp_y1, exp_x2, exp_y2 = exp_bbox
@@ -458,27 +517,31 @@ class VideoAnalyticsPipeline:
             ]
 
             boat_result = BoatAnalysisResult(
-                boat_id=i,
+                boat_id=boat_det.crop_id,
                 crop=adj_crop,  # видимый вырез для огней
                 bbox=exp_bbox,  # расширенные ИК-координаты для рисования на ИК-изображении
                 detection_confidence=boat_det.confidence,
             )
-
-            # Бинарный классификатор на ИК-вырезе
-            if not skip_classification and boat_det.crop.size > 0:
-                class_result = self.classifier.classify(boat_det.crop)
-                if class_result.is_sailboat:
-                    boat_result.vessel_type = "SAIL"
-                    boat_result.vessel_type_confidence = (
-                        class_result.sailboat_probability * 100
-                    )
-                else:
-                    boat_result.vessel_type = "MECH"
-                    boat_result.vessel_type_confidence = (
-                        class_result.not_sailboat_probability * 100
-                    )
-
             boats.append(boat_result)
+            crops_for_classification.append(ir_crop)
+
+        # Шаг 3: Пакетная классификация на ИК-вырезах
+        if not skip_classification and crops_for_classification:
+            # Фильтруем пустые кропы
+            valid_indices = [j for j, c in enumerate(crops_for_classification) if c.size > 0]
+            if valid_indices:
+                valid_crops = [crops_for_classification[j] for j in valid_indices]
+                class_results = self.classifier.classify_batch(valid_crops)
+                for idx, class_result in zip(valid_indices, class_results):
+                    boat = boats[idx]
+                    if class_result.is_sailboat:
+                        boat.vessel_type = "SAIL"
+                        boat.vessel_type_confidence = class_result.sailboat_probability * 100
+                    else:
+                        boat.vessel_type = "MECH"
+                        boat.vessel_type_confidence = (
+                            class_result.not_sailboat_probability * 100
+                        )
 
         # Инициализировать результат - использовать ИК-изображение для визуализации
         result = PipelineResult(image=ir_image, is_night=True, boats=boats)
@@ -489,7 +552,9 @@ class VideoAnalyticsPipeline:
         # Шаг 4: Классификация огней на видимых вырезах
         for boat in boats:
             if boat.crop.size > 0:
-                lights_statuses = classify_lights(image=boat.crop, config=self.config)
+                lights_statuses = classify_lights(
+                    image=boat.crop, config=self.config, model=self.lights_model
+                )
 
                 valid_statuses = []
                 for status in lights_statuses:

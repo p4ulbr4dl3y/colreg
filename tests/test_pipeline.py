@@ -1,12 +1,11 @@
-import pytest
 import os
 import cv2
+import pytest
 from colreg_vision.pipeline import VideoAnalyticsPipeline
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def pipeline():
-    """Фикстура для однократной инициализации конвейера для всех тестов."""
     return VideoAnalyticsPipeline()
 
 
@@ -16,7 +15,7 @@ def pipeline():
         ("cbd.png", "CBD"),
         ("fishing.png", "FISH"),
         ("nuc.png", "NUC"),
-        ("power-driven.webp", "CBD"),
+        ("power-driven.webp", "MECH"),  # Ранее ошибочно ожидалось CBD из-за ложного срабатывания
         ("ram.png", "RAM"),
         ("sailing.jpg", "SAIL"),
     ],
@@ -53,43 +52,41 @@ def test_day_mode_classifications(pipeline, image_name, expected_type):
     ],
 )
 def test_night_mode_classifications(pipeline, category, expected_type):
-    """Проверка того, что ночные изображения (ИК + видимый спектр) классифицируются правильно."""
+    """Проверка того, что ночные изображения классифицируются правильно."""
     cat_dir = os.path.join("test_images/night", category)
     ir_path = os.path.join(cat_dir, "ir.png")
 
-    # Обрабатываем опечатку 'nomal.png' в директории ram
+    # Учитываем возможную опечатку в имени файла
     visible_path = os.path.join(cat_dir, "normal.png")
     if not os.path.exists(visible_path):
         visible_path = os.path.join(cat_dir, "nomal.png")
 
-    assert os.path.exists(ir_path), f"ИК изображение не найдено в директории {cat_dir}"
-    assert os.path.exists(visible_path), (
-        f"Изображение видимого спектра не найдено в директории {cat_dir}"
-    )
+    assert os.path.exists(ir_path), f"ИК-изображение {ir_path} не найдено"
+    assert os.path.exists(visible_path), f"Видимое изображение {visible_path} не найдено"
 
-    ir_img = cv2.imread(ir_path)
-    vis_img = cv2.imread(visible_path)
+    ir_image = cv2.imread(ir_path)
+    visible_image = cv2.imread(visible_path)
 
-    result = pipeline.process_night(ir_img, vis_img)
+    result = pipeline.process_night(ir_image, visible_image)
 
-    assert result.boat_count > 0, f"Суда не найдены в ночной категории {category}"
+    assert result.boat_count > 0, f"В категории {category} не найдено судов"
 
+    # Проверяем наличие ожидаемого типа
     found_expected = any(
         boat.final_vessel_type == expected_type for boat in result.boats
     )
     assert found_expected, (
-        f"Ожидаемый тип {expected_type} не найден в категории {category}. Найденные типы: {[b.final_vessel_type for b in result.boats]}"
+        f"Ожидаемый тип {expected_type} не найден в ночной категории {category}. "
+        f"Найденные типы: {[b.final_vessel_type for b in result.boats]}"
     )
 
 
-def test_empty_sea_scene(pipeline):
-    """Проверка того, что на пустом изображении моря не обнаруживаются суда."""
+def test_empty_image(pipeline):
+    """Проверка обработки пустого изображения (море без судов)."""
     image_path = "test_images/day/sea.webp"
-    assert os.path.exists(image_path)
-
     image = cv2.imread(image_path)
     result = pipeline.process(image, is_night=False)
 
-    assert result.boat_count == 0, (
-        f"Ложное срабатывание: обнаружено {result.boat_count} судов на пустом морском пейзаже!"
-    )
+    assert result.boat_count == 0
+    assert result.sailboat_count == 0
+    assert result.mechanical_count == 0

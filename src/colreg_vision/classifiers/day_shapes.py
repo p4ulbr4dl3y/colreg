@@ -190,6 +190,7 @@ def classify_day_shapes(
     model_path: Optional[Union[str, Path]] = None,
     x_tolerance: Optional[int] = None,
     return_detections: bool = False,
+    model: Optional[YOLO] = None,
 ) -> Union[
     List[VesselTypeResult], Tuple[List[VesselTypeResult], List[DayShapeDetection]]
 ]:
@@ -206,6 +207,7 @@ def classify_day_shapes(
         model_path: Путь к весам модели YOLO.
         x_tolerance: Горизонтальная толерантность для группировки по мачте (пиксели).
         return_detections: Если True, также вернуть сырые обнаружения.
+        model: Предварительно загруженная модель YOLO (для кэширования в конвейере).
 
     Returns:
         Список объектов VesselTypeResult. Если return_detections=True,
@@ -238,9 +240,13 @@ def classify_day_shapes(
         raise TypeError("Изображение должно быть путём к файлу или numpy массивом")
 
     # Загрузить модель и выполнить инференс
-    model = YOLO(str(model_path))
+    if model is None:
+        model = YOLO(str(model_path))
     results = model(
-        image, conf=confidence_threshold or config.day_shapes.confidence_threshold
+        image,
+        conf=confidence_threshold or config.day_shapes.confidence_threshold,
+        device=config.device,
+        verbose=False,
     )
     result = results[0]
 

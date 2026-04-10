@@ -23,6 +23,7 @@ class InfraredDetection:
     confidence: float
     class_id: int
     class_name: str
+    track_id: int = 0  # ID трека от YOLO (если доступен)
 
     @property
     def center_x(self) -> float:
@@ -47,28 +48,25 @@ def detect_infrared_objects(
     confidence_threshold: Optional[float] = None,
     model_path: Optional[Union[str, Path]] = None,
     class_filter: Optional[List[int]] = None,
+    model: Optional[YOLO] = None,
+    use_tracker: bool = False,
 ) -> List[InfraredDetection]:
     """
     Обнаружить объекты на инфракрасных/тепловых изображениях.
 
-    Эта функция не зависит от конвейера — принимает любое изображение и возвращает
-    обнаружения. Работает как с дневными, так и с ночными инфракрасными изображениями.
+    Эта функция не зависит от конвейера.
 
     Args:
-        image: Входное изображение как путь к файлу или numpy массив (BGR/RGB).
+        image: Входное изображение как путь к файлу или numpy массив.
         config: Объект конфигурации. Используется по умолчанию, если None.
         confidence_threshold: Переопределить порог уверенности по умолчанию.
         model_path: Путь к весам модели YOLO для инфракрасного обнаружения.
         class_filter: Опциональный список ID классов для фильтрации результатов.
+        model: Предварительно загруженная модель YOLO.
+        use_tracker: Использовать ли трекер.
 
     Returns:
-        Список объектов InfraredDetection. Пустой список, если объекты не обнаружены.
-
-    Пример:
-        >>> image = cv2.imread('night_scene.png')
-        >>> detections = detect_infrared_objects(image)
-        >>> for det in detections:
-        ...     print(f"Объект: {det.class_name}, ув: {det.confidence:.2f}")
+        Список объектов InfraredDetection.
     """
     if config is None:
         config = Config()
@@ -81,21 +79,26 @@ def detect_infrared_objects(
         if not model_path.is_absolute():
             model_path = config.base_dir / model_path
 
-    # Загрузить изображение
-    if isinstance(image, (str, Path)):
-        image_cv = cv2.imread(str(image))
-        if image_cv is None:
-            raise ValueError(f"Не удалось загрузить изображение: {image}")
-        image = image_cv
-    elif not isinstance(image, np.ndarray):
-        raise TypeError("Изображение должно быть путём к файлу или numpy массивом")
+    # Загрузить модель
+    if model is None:
+        model = YOLO(str(model_path))
 
-    # Загрузить модель и выполнить инференс
-    model = YOLO(str(model_path))
-    results = model(
-        image,
-        conf=confidence_threshold or config.infrared_detector.confidence_threshold,
-    )
+    # Выполнить инференс (с трекером или без)
+    conf = confidence_threshold or config.infrared_detector.confidence_threshold
+    device = config.device
+
+    if use_tracker:
+        results = model.track(
+            image,
+            conf=conf,
+            persist=True,
+            tracker=config.tracker_type,
+            device=device,
+            verbose=False,
+        )
+    else:
+        results = model(image, conf=conf, device=device, verbose=False)
+
     result = results[0]
 
     detections = []
@@ -112,6 +115,7 @@ def detect_infrared_objects(
             conf = float(boxes.conf[i])
             x1, y1, x2, y2 = map(int, boxes.xyxy[i])
             class_name = result.names.get(class_id, f"class_{class_id}")
+            track_id = int(boxes.id[i]) if boxes.id is not None else i
 
             detections.append(
                 InfraredDetection(
@@ -119,6 +123,7 @@ def detect_infrared_objects(
                     confidence=conf,
                     class_id=class_id,
                     class_name=class_name,
+                    track_id=track_id,
                 )
             )
 

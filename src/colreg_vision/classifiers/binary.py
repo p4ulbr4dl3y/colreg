@@ -152,54 +152,68 @@ class BinaryClassifier:
         image: Union[str, Path, np.ndarray, Image.Image],
         return_probabilities: bool = True,
     ) -> ClassificationResult:
+        """Классифицировать одно изображение (прокси для classify_batch)."""
+        return self.classify_batch([image])[0]
+
+    def classify_batch(
+        self,
+        images: List[Union[str, Path, np.ndarray, Image.Image]],
+    ) -> List[ClassificationResult]:
         """
-        Классифицировать одно изображение.
+        Классифицировать список изображений за один проход (Batch Inference).
 
         Args:
-            image: Входное изображение как путь к файлу, numpy массив (BGR) или PIL Image (RGB).
-            return_probabilities: Включать ли все вероятности классов.
+            images: Список входных изображений.
 
         Returns:
-            ClassificationResult с предсказанным классом и уверенностью.
-
-        Пример:
-            >>> crop = cv2.imread('boat_crop.jpg')
-            >>> result = classifier.classify(crop)
-            >>> print(f"{result.predicted_class}: {result.confidence:.1f}%")
+            Список ClassificationResult.
         """
-        # Загрузить и конвертировать изображение
-        if isinstance(image, (str, Path)):
-            pil_image = Image.open(str(image)).convert("RGB")
-        elif isinstance(image, np.ndarray):
-            # Конвертировать BGR (OpenCV) в RGB (PIL)
-            pil_image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-        elif isinstance(image, Image.Image):
-            pil_image = image.convert("RGB")
-        else:
-            raise TypeError(
-                "Изображение должно быть путём к файлу, numpy массивом или PIL Image"
-            )
+        if not images:
+            return []
 
-        # Применить трансформации
-        img_tensor = self.transform(pil_image).unsqueeze(0).to(self.device)
+        tensors = []
+        for img in images:
+            # Загрузить и конвертировать изображение
+            if isinstance(img, (str, Path)):
+                pil_image = Image.open(str(img)).convert("RGB")
+            elif isinstance(img, np.ndarray):
+                # Конвертировать BGR (OpenCV) в RGB (PIL)
+                pil_image = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+            elif isinstance(img, Image.Image):
+                pil_image = img.convert("RGB")
+            else:
+                raise TypeError(
+                    "Изображение должно быть путём к файлу, numpy массивом или PIL Image"
+                )
+
+            # Применить трансформации и добавить в список
+            tensors.append(self.transform(pil_image))
+
+        # Собрать батч и отправить на устройство
+        batch_tensor = torch.stack(tensors).to(self.device)
 
         # Запустить инференс
         with torch.no_grad():
-            output = self.model(img_tensor)
+            output = self.model(batch_tensor)
             probs = torch.softmax(output, dim=1)
-            confidence, predicted = torch.max(probs, 1)
+            confidences, predicteds = torch.max(probs, 1)
 
-        # Извлечь результаты
-        predicted_idx = predicted.item()
-        predicted_class = self.class_names[predicted_idx]
-        confidence_pct = confidence.item() * 100
+        results = []
+        for i in range(len(images)):
+            predicted_idx = predicteds[i].item()
+            predicted_class = self.class_names[predicted_idx]
+            confidence_pct = confidences[i].item() * 100
 
-        sailboat_prob = probs[0][1].item() if len(self.class_names) > 1 else 0.0
-        not_sailboat_prob = probs[0][0].item() if len(self.class_names) > 0 else 0.0
+            sailboat_prob = probs[i][1].item() if len(self.class_names) > 1 else 0.0
+            not_sailboat_prob = probs[i][0].item() if len(self.class_names) > 0 else 0.0
 
-        return ClassificationResult(
-            predicted_class=predicted_class,
-            confidence=confidence_pct,
-            sailboat_probability=sailboat_prob,
-            not_sailboat_probability=not_sailboat_prob,
-        )
+            results.append(
+                ClassificationResult(
+                    predicted_class=predicted_class,
+                    confidence=confidence_pct,
+                    sailboat_probability=sailboat_prob,
+                    not_sailboat_probability=not_sailboat_prob,
+                )
+            )
+
+        return results

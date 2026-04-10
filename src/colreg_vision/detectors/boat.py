@@ -39,6 +39,8 @@ def detect_and_crop_boats(
     confidence_threshold: Optional[float] = None,
     class_id: Optional[int] = None,
     model_path: Optional[Union[str, Path]] = None,
+    model: Optional[YOLO] = None,
+    use_tracker: bool = False,
 ) -> List[BoatDetection]:
     """
     Обнаружить суда на изображении и вернуть вырезанные области.
@@ -52,16 +54,11 @@ def detect_and_crop_boats(
         confidence_threshold: Переопределить порог уверенности по умолчанию.
         class_id: ID класса для обнаружения судов (по умолчанию: 8 для COCO boat).
         model_path: Путь к весам модели YOLO. Используется по умолчанию, если None.
+        model: Предварительно загруженная модель YOLO (для кэширования в конвейере).
+        use_tracker: Использовать ли трекер (только для видеопотока).
 
     Returns:
         Список объектов BoatDetection, содержащих вырезы и метаданные.
-        Пустой список, если суда не обнаружены или загрузка изображения не удалась.
-
-    Пример:
-        >>> image = cv2.imread('frame.jpg')
-        >>> detections = detect_and_crop_boats(image)
-        >>> for det in detections:
-        ...     print(f"Судно обнаружено: {det.confidence:.2f}, размер: {det.width}x{det.height}")
     """
     if config is None:
         config = Config()
@@ -74,20 +71,26 @@ def detect_and_crop_boats(
         if not model_path.is_absolute():
             model_path = config.base_dir / model_path
 
-    # Загрузить изображение
-    if isinstance(image, (str, Path)):
-        image_cv = cv2.imread(str(image))
-        if image_cv is None:
-            raise ValueError(f"Не удалось загрузить изображение: {image}")
-        image = image_cv
-    elif not isinstance(image, np.ndarray):
-        raise TypeError("Изображение должно быть путём к файлу или numpy массивом")
+    # Загрузить модель
+    if model is None:
+        model = YOLO(str(model_path))
 
-    # Загрузить модель и выполнить инференс
-    model = YOLO(str(model_path))
-    results = model(
-        image, conf=confidence_threshold or config.boat_detector.confidence_threshold
-    )
+    # Выполнить инференс (с трекером или без)
+    conf = confidence_threshold or config.boat_detector.confidence_threshold
+    device = config.device
+
+    if use_tracker:
+        results = model.track(
+            image,
+            conf=conf,
+            persist=True,
+            tracker=config.tracker_type,
+            device=device,
+            verbose=False,
+        )
+    else:
+        results = model(image, conf=conf, device=device, verbose=False)
+
     result = results[0]
 
     detections = []
@@ -102,12 +105,15 @@ def detect_and_crop_boats(
                 conf = float(boxes.conf[i])
                 x1, y1, x2, y2 = map(int, boxes.xyxy[i])
 
+                # Получить ID трека, если доступен
+                track_id = int(boxes.id[i]) if boxes.id is not None else i
+
                 # Вырезать область судна
                 crop = image[y1:y2, x1:x2].copy()
 
                 detections.append(
                     BoatDetection(
-                        crop=crop, bbox=[x1, y1, x2, y2], confidence=conf, crop_id=i
+                        crop=crop, bbox=[x1, y1, x2, y2], confidence=conf, crop_id=track_id
                     )
                 )
 
