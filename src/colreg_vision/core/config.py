@@ -42,7 +42,7 @@ class Config:
     # Бинарный классификатор (парусное vs непарусное)
     binary_classifier: ModelConfig = field(
         default_factory=lambda: ModelConfig(
-            path="models/binary_classifier.pth", confidence_threshold=0.5
+            path="models/binary_classifier.pth", confidence_threshold=0.6
         )
     )
 
@@ -56,14 +56,14 @@ class Config:
     # Классификация дневных фигур
     day_shapes: ModelConfig = field(
         default_factory=lambda: ModelConfig(
-            path="models/day_shapes.pt", confidence_threshold=0.5
+            path="models/day_shapes.pt", confidence_threshold=0.88
         )
     )
 
     # Классификация огней
     lights: ModelConfig = field(
         default_factory=lambda: ModelConfig(
-            path="models/lights.pt", confidence_threshold=0.5
+            path="models/lights.pt", confidence_threshold=0.6
         )
     )
 

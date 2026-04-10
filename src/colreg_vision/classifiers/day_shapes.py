@@ -82,14 +82,20 @@ DAY_SHAPES_RULES = {
 
 
 def _group_by_mast(
-    detections: List[DayShapeDetection], x_tolerance: int = 40
+    detections: List[DayShapeDetection], 
+    x_tolerance: int = 40,
+    max_y_gap_factor: float = 4.0,
+    max_area_ratio: float = 4.0
 ) -> List[List[DayShapeDetection]]:
     """
     Сгруппировать обнаружения по мачте (вертикальное выравнивание).
+    Использует эвристики по X, Y и консистентности размеров фигур.
 
     Args:
         detections: Список обнаруженных фигур.
         x_tolerance: Максимальное горизонтальное расстояние для считания одной мачтой.
+        max_y_gap_factor: Максимальный вертикальный разрыв (в средних высотах фигур).
+        max_area_ratio: Максимальное отношение площадей в одной группе.
 
     Returns:
         Список групп, каждая группа содержит фигуры на одной мачте.
@@ -103,12 +109,29 @@ def _group_by_mast(
     groups = []
     current_group = [sorted_detections[0]]
 
+    def get_area(d: DayShapeDetection) -> float:
+        return (d.bbox[2] - d.bbox[0]) * (d.bbox[3] - d.bbox[1])
+
+    def get_height(d: DayShapeDetection) -> float:
+        return d.bbox[3] - d.bbox[1]
+
     for i in range(1, len(sorted_detections)):
         prev = current_group[-1]
         curr = sorted_detections[i]
 
-        # Проверить, на одной ли мачте (похожая позиция X)
-        if abs(curr.center_x - prev.center_x) < x_tolerance:
+        # 1. Проверка по X (выравнивание по вертикали)
+        x_aligned = abs(curr.center_x - prev.center_x) < x_tolerance
+
+        # 2. Проверка по Y (отсутствие слишком больших разрывов)
+        avg_height = (get_height(prev) + get_height(curr)) / 2
+        y_gap = curr.bbox[1] - prev.bbox[3]  # Расстояние между фигурами
+        y_close_enough = y_gap < (max_y_gap_factor * avg_height)
+
+        # 3. Проверка по размеру (площади не должны отличаться экстремально)
+        current_areas = [get_area(d) for d in current_group] + [get_area(curr)]
+        area_ratio_ok = (max(current_areas) / min(current_areas)) <= max_area_ratio
+
+        if x_aligned and y_close_enough and area_ratio_ok:
             current_group.append(curr)
         else:
             # Новая мачта

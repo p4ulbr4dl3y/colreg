@@ -274,7 +274,7 @@ class VideoAnalyticsPipeline:
 
             # Бинарный классификатор: sailboat vs not_sailboat → тип судна
             if not skip_classification:
-                class_result = self.classifier.classify(crop)
+                class_result = self.classifier.classify(boat_det.crop)
                 if class_result.is_sailboat:
                     boat_result.vessel_type = "SAIL"
                     boat_result.vessel_type_confidence = (
@@ -311,9 +311,10 @@ class VideoAnalyticsPipeline:
                     signal_w = status.bbox[2] - status.bbox[0]
                     signal_h = status.bbox[3] - status.bbox[1]
                     signal_area = signal_w * signal_h
-                    crop_area = boat.crop.shape[0] * boat.crop.shape[1]
+                    crop_h, crop_w = boat.crop.shape[:2]
+                    crop_area = crop_h * crop_w
 
-                    if signal_area < crop_area * 0.3:
+                    if signal_area < crop_area * 0.3 and signal_w < crop_w * 0.6:
                         valid_statuses.append(status)
 
                 if valid_statuses:
@@ -336,9 +337,12 @@ class VideoAnalyticsPipeline:
                     signal_h = status.bbox[3] - status.bbox[1]
                     signal_area = signal_w * signal_h
 
-                    crop_area = boat.crop.shape[0] * boat.crop.shape[1]
+                    crop_h, crop_w = boat.crop.shape[:2]
+                    crop_area = crop_h * crop_w
 
-                    if signal_area < crop_area * 0.3:
+                    # 1. Сигнал не должен занимать слишком большую часть площади
+                    # 2. Сигнал не должен быть шире 60% от ширины судна
+                    if signal_area < crop_area * 0.3 and signal_w < crop_w * 0.6:
                         valid_statuses.append(status)
 
                 if valid_statuses:
@@ -461,8 +465,8 @@ class VideoAnalyticsPipeline:
             )
 
             # Бинарный классификатор на ИК-вырезе
-            if not skip_classification and ir_crop.size > 0:
-                class_result = self.classifier.classify(ir_crop)
+            if not skip_classification and boat_det.crop.size > 0:
+                class_result = self.classifier.classify(boat_det.crop)
                 if class_result.is_sailboat:
                     boat_result.vessel_type = "SAIL"
                     boat_result.vessel_type_confidence = (
@@ -495,9 +499,10 @@ class VideoAnalyticsPipeline:
                     signal_w = status.bbox[2] - status.bbox[0]
                     signal_h = status.bbox[3] - status.bbox[1]
                     signal_area = signal_w * signal_h
-                    crop_area = boat.crop.shape[0] * boat.crop.shape[1]
+                    crop_h, crop_w = boat.crop.shape[:2]
+                    crop_area = crop_h * crop_w
 
-                    if signal_area < crop_area * 0.3:
+                    if signal_area < crop_area * 0.3 and signal_w < crop_w * 0.6:
                         valid_statuses.append(status)
 
                 if valid_statuses:

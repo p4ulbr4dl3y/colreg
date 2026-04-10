@@ -1,7 +1,7 @@
 import os
 import cv2
 import glob
-from pipeline import VideoAnalyticsPipeline, draw_results
+from colreg_vision.pipeline import VideoAnalyticsPipeline, draw_results
 
 
 def main():

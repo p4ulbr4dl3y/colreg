@@ -1,6 +1,6 @@
 import os
 import cv2
-from pipeline import VideoAnalyticsPipeline, draw_results
+from colreg_vision.pipeline import VideoAnalyticsPipeline, draw_results
 
 
 def main():
