@@ -43,6 +43,13 @@ class VesselTypeResult:
     def is_known_signal(self) -> bool:
         return self.vessel_type not in ["Unknown", "Неизвестный сигнал"]
 
+    @property
+    def confidence(self) -> float:
+        """Средняя уверенность составляющих фигур."""
+        if not self.shapes:
+            return 0.0
+        return sum(shape.confidence for shape in self.shapes) / len(self.shapes)
+
 
 # Правила дневных фигур МППСС → типы судов
 # Цвета в формате BGR, выбраны для видимости на дневных и ночных изображениях

@@ -102,6 +102,23 @@ class BoatAnalysisResult:
         # По умолчанию от бинарного классификатора
         return self.vessel_type
 
+    @property
+    def final_vessel_type_confidence(self) -> float:
+        """
+        Получить уверенность итоговой классификации.
+
+        Если тип определен по сигналам (фигуры/огни), возвращает среднюю уверенность
+        составляющих этот сигнал элементов (в процентах).
+        Иначе возвращает уверенность бинарного классификатора.
+        """
+        if self.day_shapes_status and self.day_shapes_status.is_known_signal:
+            return self.day_shapes_status.confidence * 100.0
+
+        if self.lights_status and self.lights_status.is_known_signal:
+            return self.lights_status.confidence * 100.0
+
+        return self.vessel_type_confidence
+
 
 @dataclass
 class PipelineResult:
@@ -490,7 +507,8 @@ def draw_results(
         cv2.rectangle(output, (x1, y1), (x2, y2), color, thickness)
 
         # Подготовить текст метки
-        full_label = f"{label} #{boat.boat_id}"
+        confidence_str = f"{boat.final_vessel_type_confidence:.0f}%"
+        full_label = f"{label} #{boat.boat_id} ({confidence_str})"
 
         # Получить размер текста
         (label_w, label_h), baseline = cv2.getTextSize(
