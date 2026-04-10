@@ -1,46 +1,46 @@
-# COLREG Video Analytics Pipeline
+# Конвейер видеоаналитики COLREG
 
-High-performance video analytics pipeline designed for automated maritime vessel classification according to **COLREG-72** (International Regulations for Preventing Collisions at Sea).
+Высокопроизводительный конвейер видеоаналитики, предназначенный для автоматической классификации морских судов в соответствии с **МППСС-72** (Международные правила предупреждения столкновений судов в море).
 
-## Overview
+## Обзор системы
 
-This system processes visual data (visible light and infrared) to identify vessels and determine their operational status using hierarchical rule-based logic and deep learning models. It acts as the core Vision Node for marine autonomous systems or driver-assistance setups.
+Данная система обрабатывает визуальные данные (в видимом и инфракрасном диапазонах) для обнаружения судов и определения их эксплуатационного статуса, используя иерархическую логику на основе правил и модели глубокого обучения. Система выступает в качестве основного модуля технического зрения (Vision Node) для морских автономных систем или систем помощи судоводителю.
 
-### Key Features
-- **General Vessel Detection**: Primary object detection via YOLO.
-- **Binary Classification**: Differentiates between sailing (`SAIL`) and mechanically propelled (`MECH`) vessels.
-- **Day Shapes Classification**: Identifies COLREG day signals (balls, cones, diamonds, cylinders).
-- **Navigation Lights Classification**: Identifies COLREG night signals (red, green, white).
-- **Night Mode (Dual-Sensor Fusion)**: Leverages IR/Thermal imagery for vessel detection and visible light for navigation lights.
-- **Production Integration**: Ready-to-deploy MQTT interface (`mqtt_node.py`) for Radar-Slaved (Slew-to-Cue) architectures.
-- **Automated Validation**: Comprehensive `pytest` test suite verifying both day and night operational constraints.
+### Ключевые возможности
+- **Обнаружение судов**: Первичное обнаружение объектов с помощью YOLO.
+- **Бинарная классификация**: Разделение судов на парусные (`SAIL`) и суда с механическим двигателем (`MECH`).
+- **Классификация дневных фигур**: Распознавание дневных сигналов МППСС (шары, конусы, ромбы, цилиндры).
+- **Классификация навигационных огней**: Распознавание ночных сигналов МППСС (красный, зеленый, белый огни).
+- **Ночной режим (Слияние сенсоров)**: Использование ИК/тепловизионных изображений для надежного обнаружения судов и изображений в видимом спектре для классификации огней.
+- **Интеграция в Production**: Готовый к развертыванию MQTT-интерфейс (`mqtt_node.py`) для архитектур, управляемых радаром (Slew-to-Cue).
+- **Автоматизированное тестирование**: Исчерпывающий набор тестов `pytest`, проверяющий корректность работы логики в дневных и ночных сценариях.
 
 ---
 
-## Supported Vessel Types (COLREG-72)
+## Поддерживаемые типы судов (МППСС-72)
 
-Classification follows a strict priority hierarchy (1 = Highest Priority):
+Классификация следует строгой иерархии приоритетов (1 = Наивысший приоритет):
 
-| Priority | Type | Description | Day Signal | Night Signal |
+| Приоритет | Тип | Описание | Дневной сигнал | Ночной сигнал |
 |:---:|:---|:---|:---|:---|
-| 1 | **NUC** | Not Under Command | 2 balls | 2 red lights |
-| 2 | **RAM** | Restricted in Ability to Maneuver | ball-diamond-ball | red-white-red |
-| 3 | **CBD** | Constrained by Draught | cylinder | 3 red lights |
-| 4 | **FISHING** | Engaged in fishing | 2 cones (apex together)| red-white |
-| 5 | **SAIL** | Sailing vessel | — | — |
-| 6 | **MECH** | Power-driven vessel | — | — |
+| 1 | **NUC** | Судно, лишенное возможности управляться | 2 шара | 2 красных огня |
+| 2 | **RAM** | Судно, ограниченное в возможности маневрировать | шар-ромб-шар | красный-белый-красный |
+| 3 | **CBD** | Судно, стесненное своей осадкой | цилиндр | 3 красных огня |
+| 4 | **FISHING** | Судно, занятое ловом рыбы | 2 конуса (вершинами вместе)| красный-белый |
+| 5 | **SAIL** | Парусное судно | — | — |
+| 6 | **MECH** | Судно с механическим двигателем | — | — |
 
-*Note: Types 5 and 6 are determined via the binary classifier if no higher-priority COLREG signals are detected.*
+*Примечание: Типы 5 и 6 определяются с помощью бинарного классификатора, если не обнаружены сигналы МППСС с более высоким приоритетом.*
 
 ---
 
-## Installation & Setup
+## Установка и запуск
 
-### Prerequisites
+### Требования
 - Python 3.8+
-- PyTorch (CUDA recommended)
+- PyTorch (рекомендуется поддержка CUDA)
 
-### Environment Setup
+### Настройка окружения
 ```bash
 python -m venv venv
 source venv/bin/activate
@@ -49,20 +49,20 @@ pip install -r requirements.txt
 
 ---
 
-## Production Integration (MQTT / Slew-to-Cue)
+## Интеграция в Production (MQTT / Slew-to-Cue)
 
-For integration into actual vessel hardware (e.g., radar-slaved PTZ cameras), use the provided MQTT adapter.
+Для интеграции с реальным судовым оборудованием (например, поворотными PTZ-камерами, управляемыми радаром) используйте предоставленный MQTT-адаптер.
 
-### Start the Vision Node
-The node initializes models and connects to the specified MQTT broker:
+### Запуск модуля технического зрения (Vision Node)
+Узел инициализирует модели и подключается к указанному MQTT-брокеру:
 ```bash
 python mqtt_node.py
 ```
 
-### Communication Protocol
-The node subscribes to commands and publishes results via JSON payloads.
+### Протокол связи
+Узел подписывается на команды и публикует результаты в формате JSON.
 
-**Input Command Topic:** `colreg/vision/command`
+**Топик для входящих команд:** `colreg/vision/command`
 ```json
 {
    "request_id": "req-8842",
@@ -72,7 +72,7 @@ The node subscribes to commands and publishes results via JSON payloads.
 }
 ```
 
-**Output Result Topic:** `colreg/vision/result`
+**Топик для исходящих результатов:** `colreg/vision/result`
 ```json
 {
   "request_id": "req-8842",
@@ -91,13 +91,13 @@ The node subscribes to commands and publishes results via JSON payloads.
 }
 ```
 
-*To test the integration locally, run `python mqtt_simulate.py` while the node is active.*
+*Для локального тестирования интеграции запустите `python mqtt_simulate.py` при активном узле `mqtt_node.py`.*
 
 ---
 
-## Core Pipeline API (Python)
+## API ядра конвейера (Python)
 
-### Day Mode Analysis
+### Анализ в дневном режиме
 ```python
 import cv2
 from pipeline import VideoAnalyticsPipeline
@@ -108,11 +108,11 @@ image = cv2.imread('frame.jpg')
 result = pipeline.process(image, is_night=False)
 
 for boat in result.boats:
-    print(f"[{boat.boat_id}] Type: {boat.final_vessel_type} (Conf: {boat.final_vessel_type_confidence:.1f}%)")
+    print(f"[{boat.boat_id}] Тип: {boat.final_vessel_type} (Уверенность: {boat.final_vessel_type_confidence:.1f}%)")
 ```
 
-### Night Mode Analysis (Dual-Sensor)
-Night mode uses the thermal camera for robust detection and the visible camera for light classification.
+### Анализ в ночном режиме (Слияние сенсоров)
+В ночном режиме используется тепловизионная камера для надежного обнаружения и камера видимого спектра для классификации огней.
 ```python
 ir_image = cv2.imread('thermal_frame.png')
 visible_image = cv2.imread('visible_frame.png')
@@ -122,31 +122,31 @@ result = pipeline.process_night(ir_image, visible_image)
 
 ---
 
-## Project Structure & Architecture
+## Структура проекта и архитектура
 
 ```text
 .
-├── config.py                # Centralized configuration (model paths, thresholds)
-├── core_types.py            # Shared data structures and constants (VesselType)
-├── pipeline.py              # Core orchestrator and bounding box scaling logic
-├── boat_detector.py         # General YOLO vessel detection
-├── binary_classifier.py     # EfficientNet Sail vs. Mech classification
-├── day_shapes.py            # COLREG day shapes logic
-├── lights.py                # COLREG navigation lights logic
-├── mqtt_node.py             # Production MQTT interface
-├── mqtt_simulate.py         # Testing script for MQTT integration
-├── tests/                   # Pytest automation suite
-└── models/                  # Pre-trained weights (.pt / .pth)
-    └── unused/              # Deprecated models
+├── config.py                # Централизованная конфигурация (пути к моделям, пороги)
+├── core_types.py            # Общие структуры данных и константы (VesselType)
+├── pipeline.py              # Основной оркестратор и логика масштабирования BBox
+├── boat_detector.py         # Обнаружение судов (YOLO)
+├── binary_classifier.py     # Бинарная классификация (Парусное/Механическое)
+├── day_shapes.py            # Логика распознавания дневных фигур МППСС
+├── lights.py                # Логика распознавания навигационных огней МППСС
+├── mqtt_node.py             # MQTT-интерфейс для продакшена
+├── mqtt_simulate.py         # Скрипт тестирования MQTT-интеграции
+├── tests/                   # Набор автоматизированных тестов (Pytest)
+└── models/                  # Предобученные веса моделей (.pt / .pth)
+    └── unused/              # Устаревшие/неиспользуемые модели
 ```
 
 ---
 
-## Testing
+## Тестирование
 
-The project includes an automated test suite verifying classification logic against standard day and night scenarios.
+Проект включает набор автоматизированных тестов, проверяющих логику классификации на стандартных дневных и ночных сценариях.
 
 ```bash
-# Run all tests
+# Запуск всех тестов
 pytest tests/test_pipeline.py -v
 ```

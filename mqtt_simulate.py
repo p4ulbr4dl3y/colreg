@@ -30,7 +30,7 @@ def on_message(client, userdata, msg):
         payload = json.loads(msg.payload.decode('utf-8'))
         print(json.dumps(payload, indent=2, ensure_ascii=False))
     except Exception as e:
-        print(f"Raw payload: {msg.payload}")
+        print(f"Сырая полезная нагрузка: {msg.payload}")
     
     print("\n✅ Симуляция успешно завершена!")
     client.disconnect()

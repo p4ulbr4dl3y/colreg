@@ -6,7 +6,7 @@ from pipeline import VideoAnalyticsPipeline
 
 @pytest.fixture(scope="module")
 def pipeline():
-    """Fixture to initialize the pipeline once for all tests."""
+    """Фикстура для однократной инициализации конвейера для всех тестов."""
     return VideoAnalyticsPipeline()
 
 
@@ -22,22 +22,22 @@ def pipeline():
     ],
 )
 def test_day_mode_classifications(pipeline, image_name, expected_type):
-    """Test that day images are classified correctly by their signals or binary class."""
+    """Проверка того, что дневные изображения классифицируются правильно по их сигналам или бинарным классом."""
     image_path = os.path.join("test_images/day", image_name)
-    assert os.path.exists(image_path), f"Test image {image_path} not found"
+    assert os.path.exists(image_path), f"Тестовое изображение {image_path} не найдено"
 
     image = cv2.imread(image_path)
     result = pipeline.process(image, is_night=False)
 
-    assert result.boat_count > 0, f"No boats detected in {image_name}"
+    assert result.boat_count > 0, f"На изображении {image_name} не найдено судов"
 
-    # Check if at least one boat in the image matches the expected classification
-    # Some images have multiple boats, so we check if the primary one is correct
+    # Проверяем, совпадает ли классификация хотя бы одного судна с ожидаемой
+    # На некоторых изображениях несколько судов, проверяем корректность целевого судна
     found_expected = any(
         boat.final_vessel_type == expected_type for boat in result.boats
     )
     assert found_expected, (
-        f"Expected {expected_type} not found in {image_name}. Types found: {[b.final_vessel_type for b in result.boats]}"
+        f"Ожидаемый тип {expected_type} не найден на {image_name}. Найденные типы: {[b.final_vessel_type for b in result.boats]}"
     )
 
 
@@ -53,35 +53,37 @@ def test_day_mode_classifications(pipeline, image_name, expected_type):
     ],
 )
 def test_night_mode_classifications(pipeline, category, expected_type):
-    """Test that night images (IR + Visible) are classified correctly."""
+    """Проверка того, что ночные изображения (ИК + видимый спектр) классифицируются правильно."""
     cat_dir = os.path.join("test_images/night", category)
     ir_path = os.path.join(cat_dir, "ir.png")
 
-    # Handle the 'nomal.png' typo in ram directory
+    # Обрабатываем опечатку 'nomal.png' в директории ram
     visible_path = os.path.join(cat_dir, "normal.png")
     if not os.path.exists(visible_path):
         visible_path = os.path.join(cat_dir, "nomal.png")
 
-    assert os.path.exists(ir_path), f"IR image not found in {cat_dir}"
-    assert os.path.exists(visible_path), f"Visible image not found in {cat_dir}"
+    assert os.path.exists(ir_path), f"ИК изображение не найдено в директории {cat_dir}"
+    assert os.path.exists(visible_path), (
+        f"Изображение видимого спектра не найдено в директории {cat_dir}"
+    )
 
     ir_img = cv2.imread(ir_path)
     vis_img = cv2.imread(visible_path)
 
     result = pipeline.process_night(ir_img, vis_img)
 
-    assert result.boat_count > 0, f"No boats detected in night category {category}"
+    assert result.boat_count > 0, f"Суда не найдены в ночной категории {category}"
 
     found_expected = any(
         boat.final_vessel_type == expected_type for boat in result.boats
     )
     assert found_expected, (
-        f"Expected {expected_type} not found in {category}. Types found: {[b.final_vessel_type for b in result.boats]}"
+        f"Ожидаемый тип {expected_type} не найден в категории {category}. Найденные типы: {[b.final_vessel_type for b in result.boats]}"
     )
 
 
 def test_empty_sea_scene(pipeline):
-    """Test that no boats are detected in an empty sea scene."""
+    """Проверка того, что на пустом изображении моря не обнаруживаются суда."""
     image_path = "test_images/day/sea.webp"
     assert os.path.exists(image_path)
 
@@ -89,5 +91,5 @@ def test_empty_sea_scene(pipeline):
     result = pipeline.process(image, is_night=False)
 
     assert result.boat_count == 0, (
-        f"Detected {result.boat_count} boats in an empty sea scene!"
+        f"Ложное срабатывание: обнаружено {result.boat_count} судов на пустом морском пейзаже!"
     )

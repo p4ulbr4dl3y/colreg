@@ -33,13 +33,13 @@ class VisionNode:
     """
 
     def __init__(self):
-        logger.info("Initializing Video Analytics Pipeline...")
+        logger.info("Инициализация конвейера видеоаналитики...")
         self.pipeline = VideoAnalyticsPipeline()
         # "Прогрев" моделей (первый инференс всегда долгий, сделаем его на пустой картинке)
         dummy_img = cv2.imread("test_images/day/sea.webp")
         if dummy_img is not None:
             self.pipeline.process(dummy_img)
-        logger.info("Pipeline initialized and models warmed up.")
+        logger.info("Конвейер инициализирован, модели прогреты.")
 
         self.client = mqtt.Client(
             mqtt.CallbackAPIVersion.VERSION2, "colreg_vision_node"
@@ -57,13 +57,15 @@ class VisionNode:
     ) -> None:
         """Колбэк при успешном подключении к MQTT брокеру."""
         if reason_code == 0:
-            logger.info(f"Connected to MQTT broker at {MQTT_BROKER}:{MQTT_PORT}")
+            logger.info(
+                f"Успешное подключение к MQTT брокеру на {MQTT_BROKER}:{MQTT_PORT}"
+            )
             # Подписываемся на команды
             client.subscribe(MQTT_TOPIC_COMMAND)
-            logger.info(f"Subscribed to topic: {MQTT_TOPIC_COMMAND}")
+            logger.info(f"Подписка на топик оформлена: {MQTT_TOPIC_COMMAND}")
         else:
             logger.error(
-                f"Failed to connect to MQTT broker. Reason code: {reason_code}"
+                f"Не удалось подключиться к MQTT брокеру. Код ошибки: {reason_code}"
             )
 
     def _on_message(
@@ -72,7 +74,7 @@ class VisionNode:
         """Колбэк при получении сообщения из топика."""
         try:
             payload = json.loads(msg.payload.decode("utf-8"))
-            logger.info(f"Received command: {payload}")
+            logger.info(f"Получена команда: {payload}")
 
             # Ожидаемый формат payload:
             # {
@@ -86,12 +88,12 @@ class VisionNode:
             if action == "analyze":
                 self._handle_analyze_command(payload)
             else:
-                logger.warning(f"Unknown action: {action}")
+                logger.warning(f"Неизвестное действие: {action}")
 
         except json.JSONDecodeError:
-            logger.error(f"Failed to parse JSON payload: {msg.payload}")
+            logger.error(f"Не удалось распарсить JSON полезной нагрузки: {msg.payload}")
         except Exception as e:
-            logger.error(f"Error processing message: {e}")
+            logger.error(f"Ошибка при обработке сообщения: {e}")
 
     def _handle_analyze_command(self, payload: Dict[str, Any]) -> None:
         """Обрабатывает команду на анализ видео/изображения."""
@@ -100,10 +102,12 @@ class VisionNode:
         is_night = payload.get("is_night", False)
 
         if not source:
-            self._publish_error(request_id, "Missing 'source' in command payload.")
+            self._publish_error(
+                request_id, "Отсутствует 'source' в полезной нагрузке команды."
+            )
             return
 
-        logger.info(f"[{request_id}] Starting analysis on source: {source}")
+        logger.info(f"[{request_id}] Запуск анализа источника: {source}")
         start_time = time.time()
 
         try:
@@ -114,7 +118,8 @@ class VisionNode:
 
             if image is None:
                 self._publish_error(
-                    request_id, f"Failed to load image from source: {source}"
+                    request_id,
+                    f"Не удалось загрузить изображение из источника: {source}",
                 )
                 return
 
@@ -145,11 +150,11 @@ class VisionNode:
             # 4. Отправляем результат
             self.client.publish(MQTT_TOPIC_RESULT, json.dumps(response))
             logger.info(
-                f"[{request_id}] Analysis complete. Found {result.boat_count} boats. Published to {MQTT_TOPIC_RESULT}"
+                f"[{request_id}] Анализ завершен. Найдено судов: {result.boat_count}. Опубликовано в {MQTT_TOPIC_RESULT}"
             )
 
         except Exception as e:
-            logger.error(f"[{request_id}] Analysis failed: {e}")
+            logger.error(f"[{request_id}] Ошибка анализа: {e}")
             self._publish_error(request_id, str(e))
 
     def _publish_error(self, request_id: str, error_message: str) -> None:
@@ -164,14 +169,14 @@ class VisionNode:
     def start(self):
         """Запускает MQTT клиента в блокирующем цикле."""
         try:
-            logger.info("Connecting to MQTT broker...")
+            logger.info("Подключение к MQTT брокеру...")
             self.client.connect(MQTT_BROKER, MQTT_PORT, 60)
             self.client.loop_forever()
         except KeyboardInterrupt:
-            logger.info("Disconnecting from MQTT broker...")
+            logger.info("Отключение от MQTT брокера...")
             self.client.disconnect()
         except Exception as e:
-            logger.error(f"Failed to start MQTT node: {e}")
+            logger.error(f"Не удалось запустить MQTT узел: {e}")
 
 
 if __name__ == "__main__":
