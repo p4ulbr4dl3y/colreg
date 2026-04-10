@@ -301,15 +301,48 @@ class VideoAnalyticsPipeline:
             # Классификация огней на каждом вырезе судна
             for boat in boats:
                 lights_statuses = classify_lights(image=boat.crop, config=self.config)
-                if lights_statuses:
-                    boat.lights_status = lights_statuses[0]
+
+                # Фильтрация огней по размеру
+                valid_statuses = []
+                for status in lights_statuses:
+                    if not status.is_known_signal:
+                        continue
+
+                    signal_w = status.bbox[2] - status.bbox[0]
+                    signal_h = status.bbox[3] - status.bbox[1]
+                    signal_area = signal_w * signal_h
+                    crop_area = boat.crop.shape[0] * boat.crop.shape[1]
+
+                    if signal_area < crop_area * 0.3:
+                        valid_statuses.append(status)
+
+                if valid_statuses:
+                    boat.lights_status = valid_statuses[0]
 
         # Шаг 4: Дневной режим - дневные фигуры на каждом вырезе судна
         else:
             for boat in boats:
                 day_statuses = classify_day_shapes(image=boat.crop, config=self.config)
-                if day_statuses:
-                    boat.day_shapes_status = day_statuses[0]
+
+                # Фильтрация фигур по размеру
+                valid_statuses = []
+                for status in day_statuses:
+                    # Если статус неизвестен, пропускаем проверку размера
+                    if not status.is_known_signal:
+                        continue
+
+                    # Фигуры не должны занимать слишком большую часть судна
+                    signal_w = status.bbox[2] - status.bbox[0]
+                    signal_h = status.bbox[3] - status.bbox[1]
+                    signal_area = signal_w * signal_h
+
+                    crop_area = boat.crop.shape[0] * boat.crop.shape[1]
+
+                    if signal_area < crop_area * 0.3:
+                        valid_statuses.append(status)
+
+                if valid_statuses:
+                    boat.day_shapes_status = valid_statuses[0]
 
         return result
 
@@ -453,8 +486,22 @@ class VideoAnalyticsPipeline:
         for boat in boats:
             if boat.crop.size > 0:
                 lights_statuses = classify_lights(image=boat.crop, config=self.config)
-                if lights_statuses:
-                    boat.lights_status = lights_statuses[0]
+
+                valid_statuses = []
+                for status in lights_statuses:
+                    if not status.is_known_signal:
+                        continue
+
+                    signal_w = status.bbox[2] - status.bbox[0]
+                    signal_h = status.bbox[3] - status.bbox[1]
+                    signal_area = signal_w * signal_h
+                    crop_area = boat.crop.shape[0] * boat.crop.shape[1]
+
+                    if signal_area < crop_area * 0.3:
+                        valid_statuses.append(status)
+
+                if valid_statuses:
+                    boat.lights_status = valid_statuses[0]
 
         return result
 
