@@ -1,3 +1,10 @@
+Metadata-Version: 2.4
+Name: colreg-vision
+Version: 0.1.0
+Summary: COLREG Video Analytics Pipeline - Maritime vessel classification
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+
 # Конвейер видеоаналитики COLREG
 
 Высокопроизводительный конвейер видеоаналитики, предназначенный для автоматической классификации морских судов в соответствии с **МППСС-72** (Международные правила предупреждения столкновений судов в море).
@@ -39,14 +46,12 @@
 ### Требования
 - Python 3.8+
 - PyTorch (рекомендуется поддержка CUDA)
-- amqtt (для MQTT брокера)
 
 ### Настройка окружения
 ```bash
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-pip install -e .
 ```
 
 ---
@@ -55,16 +60,10 @@ pip install -e .
 
 Для интеграции с реальным судовым оборудованием (например, поворотными PTZ-камерами, управляемыми радаром) используйте предоставленный MQTT-адаптер.
 
-### Запуск MQTT брокера (для локальной разработки)
-```bash
-amqtt -c amqtt.yaml &
-```
-
 ### Запуск модуля технического зрения (Vision Node)
 Узел инициализирует модели и подключается к указанному MQTT-брокеру:
 ```bash
-pip install -e .
-python scripts/mqtt_node.py
+PYTHONPATH=src python scripts/mqtt_node.py
 ```
 
 ### Протокол связи
@@ -99,7 +98,7 @@ python scripts/mqtt_node.py
 }
 ```
 
-*Для локального тестирования интеграции запустите `python scripts/mqtt_simulate.py` при активном узле `scripts/mqtt_node.py`.*
+*Для локального тестирования интеграции запустите `PYTHONPATH=src python scripts/mqtt_simulate.py` при активном узле `scripts/mqtt_node.py`.*
 
 ---
 
@@ -171,5 +170,5 @@ result = pipeline.process_night(ir_image, visible_image)
 
 ```bash
 # Запуск всех тестов
-pytest tests/test_pipeline.py -v
+PYTHONPATH=src pytest tests/test_pipeline.py -v
 ```
