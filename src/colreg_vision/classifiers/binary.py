@@ -7,7 +7,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Union
+from typing import List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
