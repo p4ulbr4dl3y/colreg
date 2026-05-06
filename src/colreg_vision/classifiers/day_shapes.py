@@ -12,6 +12,17 @@ from colreg_vision.core.types import SignalResult, VesselType
 
 @dataclass
 class DayShapeDetection:
+    """Данные об обнаруженной дневной фигуре.
+
+    Атрибуты:
+        - class_id: идентификатор класса фигуры;
+        - class_name: текстовое название фигуры;
+        - bbox: координаты ограничивающей рамки;
+        - center_x: координата X центра фигуры;
+        - center_y: координата Y центра фигуры;
+        - confidence: уверенность обнаружения.
+    """
+
     class_id: int
     class_name: str
     bbox: List[int]
@@ -50,6 +61,17 @@ def _group_by_mast(
     max_y_gap_factor: float = 4.0,
     max_area_ratio: float = 4.0,
 ) -> List[List[DayShapeDetection]]:
+    """Группирует обнаруженные фигуры по вертикальным мачтам.
+
+    Аргументы:
+        - detections: список обнаруженных фигур;
+        - x_tolerance: допуск по горизонтали для отнесения к одной мачте;
+        - max_y_gap_factor: максимальный вертикальный разрыв относительно высоты фигур;
+        - max_area_ratio: максимальное отношение площадей фигур в одной группе.
+
+    Возвращает:
+        список групп фигур, отсортированных по вертикали.
+    """
     if not detections:
         return []
     sorted_detections = sorted(detections, key=lambda x: x.center_y)
@@ -83,6 +105,15 @@ def _group_by_mast(
 def _classify_group(
     group: List[DayShapeDetection], rules: dict = DAY_SHAPES_RULES
 ) -> SignalResult:
+    """Классифицирует состояние судна для отдельной группы фигур.
+
+    Аргументы:
+        - group: группа фигур на одной мачте;
+        - rules: словарь правил классификации.
+
+    Возвращает:
+        результат анализа сигналов.
+    """
     sequence = [d.class_id for d in group]
     vessel_type = "Unknown"
     color = (0, 0, 255)
@@ -113,6 +144,27 @@ def classify_day_shapes(
     return_detections: bool = False,
     model: Optional[YOLO] = None,
 ) -> Union[List[SignalResult], Tuple[List[SignalResult], List[DayShapeDetection]]]:
+    """Классифицирует состояние судна по дневным фигурам.
+
+    Функция обнаруживает фигуры на изображении, группирует их и сопоставляет
+    с правилами COLREG для определения статуса судна.
+
+    Аргументы:
+        - image: входное изображение;
+        - config: объект конфигурации;
+        - confidence_threshold: порог уверенности детекции;
+        - model_path: путь к весам модели;
+        - x_tolerance: допуск группировки по горизонтали;
+        - return_detections: флаг возврата списка всех обнаруженных фигур;
+        - model: экземпляр модели YOLO.
+
+    Возвращает:
+        результаты анализа сигналов или кортеж из результатов и всех детекций.
+
+    Исключения:
+        - ValueError: если не удалось загрузить изображение;
+        - TypeError: если тип изображения не поддерживается.
+    """
     if config is None:
         config = Config()
     if model_path is None:

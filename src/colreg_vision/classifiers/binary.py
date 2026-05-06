@@ -14,6 +14,15 @@ from colreg_vision.core.config import Config
 
 @dataclass
 class ClassificationResult:
+    """Результат бинарной классификации судна.
+
+    Атрибуты:
+        - predicted_class: название предсказанного класса;
+        - confidence: уверенность модели в процентах;
+        - sailboat_probability: вероятность того, что судно парусное;
+        - not_sailboat_probability: вероятность того, что судно не является парусным.
+    """
+
     predicted_class: str
     confidence: float
     sailboat_probability: float
@@ -21,16 +30,33 @@ class ClassificationResult:
 
     @property
     def is_sailboat(self) -> bool:
+        """Проверяет, является ли судно парусным.
+
+        Возвращает:
+            истина, если судно классифицировано как парусное.
+        """
         return self.predicted_class == "sailboat"
 
 
 class BinaryClassifier:
+    """Классификатор для разделения судов на парусные и моторные.
+
+    Использует модель EfficientNet для определения типа судна по его изображению.
+    """
+
     def __init__(
         self,
         model_path: Optional[Union[str, Path]] = None,
         config: Optional[Config] = None,
         device: Optional[str] = None,
     ):
+        """Инициализирует классификатор.
+
+        Аргументы:
+            - model_path: путь к файлу модели;
+            - config: объект конфигурации;
+            - device: устройство для вычислений.
+        """
         self.config = config or Config()
         if model_path is None:
             model_path = self.config.get_model_path("binary_classifier")
@@ -46,6 +72,14 @@ class BinaryClassifier:
         self.transform = self._create_transform()
 
     def _load_model(self, model_path: Path) -> tuple:
+        """Загружает модель из указанного пути.
+
+        Аргументы:
+            - model_path: путь к файлу модели.
+
+        Возвращает:
+            кортеж из загруженной модели и списка имен классов.
+        """
         checkpoint = torch.load(
             str(model_path), map_location=self.device, weights_only=False
         )
@@ -81,6 +115,11 @@ class BinaryClassifier:
         return (model, class_names)
 
     def _create_transform(self) -> transforms.Compose:
+        """Создает последовательность преобразований для входных изображений.
+
+        Возвращает:
+            объект Compose с трансформациями.
+        """
         return transforms.Compose(
             [
                 transforms.Resize(
@@ -102,11 +141,31 @@ class BinaryClassifier:
         image: Union[str, Path, np.ndarray, Image.Image],
         return_probabilities: bool = True,
     ) -> ClassificationResult:
+        """Классифицирует одиночное изображение.
+
+        Аргументы:
+            - image: изображение для классификации;
+            - return_probabilities: флаг возврата вероятностей классов.
+
+        Возвращает:
+            результат классификации.
+        """
         return self.classify_batch([image])[0]
 
     def classify_batch(
         self, images: List[Union[str, Path, np.ndarray, Image.Image]]
     ) -> List[ClassificationResult]:
+        """Выполняет классификацию группы изображений.
+
+        Аргументы:
+            - images: список изображений для обработки.
+
+        Возвращает:
+            список объектов с результатами классификации для каждого изображения.
+
+        Исключения:
+            - TypeError: если тип изображения не поддерживается.
+        """
         if not images:
             return []
         tensors = []
@@ -143,3 +202,4 @@ class BinaryClassifier:
                 )
             )
         return results
+

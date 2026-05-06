@@ -12,6 +12,17 @@ from colreg_vision.core.types import SignalResult, VesselType
 
 @dataclass
 class LightDetection:
+    """Данные об обнаруженном навигационном огне.
+
+    Атрибуты:
+        - class_id: идентификатор класса огня;
+        - class_name: текстовое название огня;
+        - bbox: координаты ограничивающей рамки;
+        - center_x: координата X центра огня;
+        - center_y: координата Y центра огня;
+        - confidence: уверенность обнаружения.
+    """
+
     class_id: int
     class_name: str
     bbox: List[int]
@@ -50,6 +61,17 @@ def _group_by_mast(
     max_y_gap_factor: float = 4.0,
     max_area_ratio: float = 4.0,
 ) -> List[List[LightDetection]]:
+    """Группирует обнаруженные огни по вертикальным мачтам.
+
+    Аргументы:
+        - detections: список обнаруженных огней;
+        - x_tolerance: допуск по горизонтали для включения в одну группу;
+        - max_y_gap_factor: максимальный вертикальный разрыв относительно высоты огней;
+        - max_area_ratio: максимальное отношение площадей огней в одной группе.
+
+    Возвращает:
+        список групп огней, отсортированных по вертикали.
+    """
     if not detections:
         return []
     sorted_detections = sorted(detections, key=lambda x: x.center_y)
@@ -83,6 +105,15 @@ def _group_by_mast(
 def _classify_group(
     group: List[LightDetection], rules: dict = LIGHTS_RULES
 ) -> SignalResult:
+    """Определяет тип судна по комбинации огней на одной мачте.
+
+    Аргументы:
+        - group: список огней, принадлежащих одной мачте;
+        - rules: словарь с правилами классификации.
+
+    Возвращает:
+        результат анализа сигналов.
+    """
     sequence = [d.class_id for d in group]
     vessel_type = "Unknown"
     color = (0, 0, 255)
@@ -113,6 +144,24 @@ def classify_lights(
     return_detections: bool = False,
     model: Optional[YOLO] = None,
 ) -> Union[List[SignalResult], Tuple[List[SignalResult], List[LightDetection]]]:
+    """Обнаруживает и классифицирует навигационные огни на изображении.
+
+    Аргументы:
+        - image: входное изображение;
+        - config: объект конфигурации;
+        - confidence_threshold: порог уверенности детектора;
+        - model_path: путь к весам модели;
+        - x_tolerance: допуск по горизонтали при группировке огней;
+        - return_detections: флаг возврата списка всех обнаруженных детекций;
+        - model: экземпляр модели YOLO.
+
+    Возвращает:
+        результаты анализа сигналов или кортеж из сигналов и списка детекций.
+
+    Исключения:
+        - ValueError: если не удалось загрузить изображение;
+        - TypeError: если тип изображения не поддерживается.
+    """
     if config is None:
         config = Config()
     if model_path is None:
