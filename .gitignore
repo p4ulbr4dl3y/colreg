@@ -10,3 +10,5 @@ test_results/
 .vscode/
 .idea/
 *.log
+.DS_Store
+*.egg-info/
