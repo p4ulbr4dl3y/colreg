@@ -1,27 +1,34 @@
-# Design: Strip Comments and Docstrings Script
+# Design Doc: Strip All Comments and Docstrings
 
-## Purpose
-A utility script to remove all comments and docstrings from Python files within the project. This is a temporary tool used for code processing.
+Date: 2025-05-15
+Topic: Codebase Stripping
 
-## Architecture
-- **CLI Tool**: Python script located at `tools/strip_comments.py`.
-- **Input**: A single file path or a directory path (processed recursively).
-- **Engine**: Python's `ast` module for reliable parsing and re-generation.
+## 1. Goal
+Remove all Python comments and docstrings from the `src`, `scripts`, `tests`, and `tools` directories to reduce codebase size and potentially obfuscate internal logic/notes.
 
-## Logic Flow
-1. **Discovery**: If input is a directory, find all `.py` files.
-2. **Parsing**: Load file content and parse into an Abstract Syntax Tree (AST).
-3. **Transformation**:
-    - Use `ast.NodeTransformer` to visit `Module`, `ClassDef`, and `FunctionDef` nodes.
-    - Remove the first statement if it is a docstring.
-4. **Re-generation**: Use `ast.unparse()` to generate source code from the modified AST. This process naturally discards all comments.
-5. **Output**: Overwrite the original file with the stripped version.
+## 2. Approach
+Use the existing `tools/strip_comments.py` script which utilizes Python's `ast` module.
 
-## Error Handling
-- Catch and report `SyntaxError` for invalid Python files.
-- Catch and report `IOError` for file access issues.
+### 2.1. Tool Analysis
+- **Mechanism**: The script parses Python code into an AST, removes docstring nodes, and then unparses the AST back into code.
+- **Side Effect**: Since it uses `ast.unparse`, all original comments (which are not in the AST) will be removed. Additionally, the entire file will be reformatted according to the standard AST representation (e.g., standardized indentation, spacing around operators, etc.).
+- **Self-Modification**: Running the script on the `tools` directory will modify `tools/strip_comments.py` itself. This is safe as the script is already loaded in the interpreter.
 
-## Testing Strategy
-1. Create a `test_strip.py` with various types of comments and docstrings.
-2. Run `python tools/strip_comments.py test_strip.py`.
-3. Verify output contains only functional code.
+## 3. Execution Plan
+1.  **Preparation**: Ensure the environment is ready (uv installed, dependencies available).
+2.  **Processing**:
+    -   `python tools/strip_comments.py src`
+    -   `python tools/strip_comments.py scripts`
+    -   `python tools/strip_comments.py tests`
+    -   `python tools/strip_comments.py tools`
+3.  **Validation**:
+    -   Run `uv run pytest tests/test_pipeline.py` to ensure core functionality is preserved.
+    -   Verify that no syntax errors were introduced by the AST transformation.
+4.  **Completion**:
+    -   Commit changes with the message: `Chore: Strip all comments and docstrings from Python source files`.
+
+## 4. Risks and Mitigations
+- **Risk**: `ast.unparse` might produce code that behaves differently if it relies on specific formatting or if there are bugs in `ast.unparse` for certain edge cases.
+- **Mitigation**: Run the full test suite after processing.
+- **Risk**: Docstrings might be used for runtime introspection (e.g., help messages).
+- **Mitigation**: This is acceptable given the explicit directive to strip them.
