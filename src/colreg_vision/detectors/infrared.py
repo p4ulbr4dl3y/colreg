@@ -14,12 +14,13 @@ class InfraredDetection:
     Данные обнаруженного объекта в инфракрасном спектре.
 
     Атрибуты:
-    - bbox: координаты ограничивающей рамки в формате [x1, y1, x2, y2];
-    - confidence: уровень уверенности модели при обнаружении;
-    - class_id: идентификатор класса объекта;
-    - class_name: наименование класса объекта;
-    - track_id: идентификатор трека объекта.
+        - bbox: координаты ограничивающей рамки в формате [x1, y1, x2, y2];
+        - confidence: уровень уверенности модели при обнаружении;
+        - class_id: идентификатор класса объекта;
+        - class_name: наименование класса объекта;
+        - track_id: идентификатор трека объекта.
     """
+
     bbox: List[int]
     confidence: float
     class_id: int
@@ -60,16 +61,16 @@ def detect_infrared_objects(
     Выполняет обнаружение объектов на инфракрасном изображении.
 
     Аргументы:
-    - image: входное изображение или путь к нему;
-    - config: объект конфигурации системы;
-    - confidence_threshold: порог уверенности для фильтрации обнаружений;
-    - model_path: путь к весам модели обнаружения;
-    - class_filter: список разрешенных идентификаторов классов для фильтрации;
-    - model: предобученная модель;
-    - use_tracker: флаг использования трекера объектов.
+        - image: входное изображение или путь к нему;
+        - config: объект конфигурации системы;
+        - confidence_threshold: порог уверенности для фильтрации обнаружений;
+        - model_path: путь к весам модели обнаружения;
+        - class_filter: список разрешенных идентификаторов классов для фильтрации;
+        - model: предобученная модель;
+        - use_tracker: флаг использования трекера объектов.
 
     Возвращает:
-    - список объектов InfraredDetection с результатами обнаружения.
+        список объектов InfraredDetection с результатами обнаружения.
     """
     if config is None:
         config = Config()
@@ -103,7 +104,7 @@ def detect_infrared_objects(
             if class_filter is not None and class_id not in class_filter:
                 continue
             conf = float(boxes.conf[i])
-            (x1, y1, x2, y2) = map(int, boxes.xyxy[i])
+            x1, y1, x2, y2 = map(int, boxes.xyxy[i])
             class_name = result.names.get(class_id, f"class_{class_id}")
             track_id = int(boxes.id[i]) if boxes.id is not None else i
             detections.append(

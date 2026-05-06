@@ -147,7 +147,7 @@ def classify_day_shapes(
     """Классифицирует состояние судна по дневным фигурам.
 
     Функция обнаруживает фигуры на изображении, группирует их и сопоставляет
-    с правилами COLREG для определения статуса судна.
+    с правилами МППСС-72 для определения статуса судна.
 
     Аргументы:
         - image: входное изображение;
@@ -195,7 +195,7 @@ def classify_day_shapes(
         for i in range(len(boxes)):
             class_id = int(boxes.cls[i])
             conf = float(boxes.conf[i])
-            (x1, y1, x2, y2) = map(int, boxes.xyxy[i])
+            x1, y1, x2, y2 = map(int, boxes.xyxy[i])
             detections.append(
                 DayShapeDetection(
                     class_id=class_id,

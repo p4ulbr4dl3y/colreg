@@ -26,14 +26,14 @@ def expand_bbox(
     """Расширяет ограничивающую рамку на основе заданных коэффициентов масштабирования.
 
     Аргументы:
-        bbox: исходные координаты рамки в формате [x1, y1, x2, y2].
-        image_shape: размеры изображения в формате (высота, ширина, ...).
-        bbox_scale: коэффициенты масштабирования для сторон [влево, вверх, вправо, вниз].
+        - bbox: исходные координаты рамки в формате [x1, y1, x2, y2];
+        - image_shape: размеры изображения в формате (высота, ширина, ...);
+        - bbox_scale: коэффициенты масштабирования для сторон [влево, вверх, вправо, вниз].
 
     Возвращает:
         список координат расширенной рамки [x1, y1, x2, y2].
     """
-    (x1, y1, x2, y2) = bbox
+    x1, y1, x2, y2 = bbox
     cx = (x1 + x2) / 2
     cy = (y1 + y2) / 2
     w = x2 - x1
@@ -127,12 +127,12 @@ class VideoAnalyticsPipeline:
         """Обрабатывает одно изображение согласно логике COLREG.
 
         Аргументы:
-            image: путь к файлу или массив изображения.
-            is_night: флаг ночного режима.
-            boat_confidence: порог достоверности детектора.
-            classifier_confidence: порог достоверности классификатора.
-            skip_classification: пропустить классификацию.
-            bbox_scale: коэффициенты масштабирования рамки.
+            - image: путь к файлу или массив изображения;
+            - is_night: флаг ночного режима;
+            - boat_confidence: порог достоверности детектора;
+            - classifier_confidence: порог достоверности классификатора;
+            - skip_classification: пропустить классификацию;
+            - bbox_scale: коэффициенты масштабирования рамки.
 
         Возвращает:
             результат анализа изображения.
@@ -155,7 +155,7 @@ class VideoAnalyticsPipeline:
         crops_for_classification = []
         for boat_det in boat_detections:
             exp_bbox = expand_bbox(boat_det.bbox, image.shape, bbox_scale)
-            (exp_x1, exp_y1, exp_x2, exp_y2) = exp_bbox
+            exp_x1, exp_y1, exp_x2, exp_y2 = exp_bbox
             crop = image[exp_y1:exp_y2, exp_x1:exp_x2]
             boat_result = BoatAnalysisResult(
                 boat_id=boat_det.crop_id,
@@ -199,7 +199,7 @@ class VideoAnalyticsPipeline:
                     signal_w = status.bbox[2] - status.bbox[0]
                     signal_h = status.bbox[3] - status.bbox[1]
                     signal_area = signal_w * signal_h
-                    (crop_h, crop_w) = boat.crop.shape[:2]
+                    crop_h, crop_w = boat.crop.shape[:2]
                     crop_area = crop_h * crop_w
                     if signal_area < crop_area * 0.3 and signal_w < crop_w * 0.6:
                         valid_statuses.append(status)
@@ -217,7 +217,7 @@ class VideoAnalyticsPipeline:
                     signal_w = status.bbox[2] - status.bbox[0]
                     signal_h = status.bbox[3] - status.bbox[1]
                     signal_area = signal_w * signal_h
-                    (crop_h, crop_w) = boat.crop.shape[:2]
+                    crop_h, crop_w = boat.crop.shape[:2]
                     crop_area = crop_h * crop_w
                     if signal_area < crop_area * 0.3 and signal_w < crop_w * 0.6:
                         valid_statuses.append(status)
@@ -238,13 +238,13 @@ class VideoAnalyticsPipeline:
         """Обрабатывает пару ИК и видимого изображений в ночном режиме.
 
         Аргументы:
-            ir_image: ИК-изображение.
-            visible_image: изображение в видимом спектре.
-            boat_confidence: порог достоверности детектора.
-            classifier_confidence: порог достоверности классификатора.
-            skip_classification: пропустить классификацию.
-            bbox_offset: смещение рамки.
-            bbox_scale: коэффициенты масштабирования рамки.
+            - ir_image: ИК-изображение;
+            - visible_image: изображение в видимом спектре;
+            - boat_confidence: порог достоверности детектора;
+            - classifier_confidence: порог достоверности классификатора;
+            - skip_classification: пропустить классификацию;
+            - bbox_offset: смещение рамки;
+            - bbox_scale: коэффициенты масштабирования рамки.
 
         Возвращает:
             результат анализа изображений.
@@ -278,7 +278,7 @@ class VideoAnalyticsPipeline:
         )
         boat_detections = []
         for ir_det in ir_detections_raw:
-            (x1, y1, x2, y2) = ir_det.bbox
+            x1, y1, x2, y2 = ir_det.bbox
             crop = ir_image[y1:y2, x1:x2].copy()
             boat_detections.append(
                 BoatDetection(
@@ -292,7 +292,7 @@ class VideoAnalyticsPipeline:
         crops_for_classification = []
         for boat_det in boat_detections:
             exp_bbox = expand_bbox(boat_det.bbox, ir_image.shape, bbox_scale)
-            (exp_x1, exp_y1, exp_x2, exp_y2) = exp_bbox
+            exp_x1, exp_y1, exp_x2, exp_y2 = exp_bbox
             adj_bbox = [
                 max(0, exp_x1 + bbox_offset[0]),
                 max(0, exp_y1 + bbox_offset[1]),
@@ -344,7 +344,7 @@ class VideoAnalyticsPipeline:
                     signal_w = status.bbox[2] - status.bbox[0]
                     signal_h = status.bbox[3] - status.bbox[1]
                     signal_area = signal_w * signal_h
-                    (crop_h, crop_w) = boat.crop.shape[:2]
+                    crop_h, crop_w = boat.crop.shape[:2]
                     crop_area = crop_h * crop_w
                     if signal_area < crop_area * 0.3 and signal_w < crop_w * 0.6:
                         valid_statuses.append(status)
@@ -362,17 +362,17 @@ def draw_results(
     """Отрисовывает результаты анализа на изображении.
 
     Аргументы:
-        image: исходное изображение.
-        result: результаты анализа конвейера.
-        thickness: толщина линий рамки и текста.
-        font_scale: масштаб шрифта для подписей.
+        - image: исходное изображение;
+        - result: результаты анализа конвейера;
+        - thickness: толщина линий рамки и текста;
+        - font_scale: масштаб шрифта для подписей.
 
     Возвращает:
         изображение с отрисованными результатами.
     """
     output = image.copy()
     for boat in result.boats:
-        (x1, y1, x2, y2) = boat.bbox
+        x1, y1, x2, y2 = boat.bbox
         label = boat.final_vessel_type
         color = CLASS_COLORS.get(label, (255, 255, 255))
         if boat.day_shapes_status and boat.day_shapes_status.is_known_signal:
@@ -382,7 +382,7 @@ def draw_results(
         cv2.rectangle(output, (x1, y1), (x2, y2), color, thickness)
         confidence_str = f"{boat.final_vessel_type_confidence:.0f}%"
         full_label = f"{label} #{boat.boat_id} ({confidence_str})"
-        ((label_w, label_h), baseline) = cv2.getTextSize(
+        (label_w, label_h), baseline = cv2.getTextSize(
             full_label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness
         )
         text_x = x1 + thickness + 2
