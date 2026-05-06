@@ -1,19 +1,16 @@
 from colreg_vision.classifiers.binary import BinaryClassifier
-from colreg_vision.classifiers.day_shapes import (
-    VesselType,
-    VesselTypeResult,
-    classify_day_shapes,
-)
-from colreg_vision.classifiers.lights import VesselTypeResult as LightsVesselTypeResult
+from colreg_vision.classifiers.day_shapes import classify_day_shapes
 from colreg_vision.classifiers.lights import classify_lights
 from colreg_vision.core.config import Config
-from colreg_vision.detectors.boat import detect_and_crop_boats
-from colreg_vision.detectors.infrared import detect_infrared_objects
-from colreg_vision.pipeline import (
+from colreg_vision.core.types import (
     BoatAnalysisResult,
     PipelineResult,
-    VideoAnalyticsPipeline,
+    SignalResult,
+    VesselType,
 )
+from colreg_vision.detectors.boat import detect_and_crop_boats
+from colreg_vision.detectors.infrared import detect_infrared_objects
+from colreg_vision.pipeline import VideoAnalyticsPipeline
 
 __all__ = [
     "Config",
@@ -24,8 +21,7 @@ __all__ = [
     "classify_lights",
     "VideoAnalyticsPipeline",
     "VesselType",
-    "VesselTypeResult",
-    "LightsVesselTypeResult",
+    "SignalResult",
     "BoatAnalysisResult",
     "PipelineResult",
 ]

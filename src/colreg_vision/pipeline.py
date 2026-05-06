@@ -7,11 +7,16 @@ import numpy as np
 from ultralytics import YOLO
 
 from colreg_vision.classifiers.binary import BinaryClassifier
-from colreg_vision.classifiers.day_shapes import VesselTypeResult, classify_day_shapes
-from colreg_vision.classifiers.lights import VesselTypeResult as LightsVesselTypeResult
+from colreg_vision.classifiers.day_shapes import classify_day_shapes
 from colreg_vision.classifiers.lights import classify_lights
 from colreg_vision.core.config import Config
-from colreg_vision.core.types import CLASS_COLORS
+from colreg_vision.core.types import (
+    CLASS_COLORS,
+    BoatAnalysisResult,
+    PipelineResult,
+    SignalResult,
+    VesselType,
+)
 from colreg_vision.detectors.boat import BoatDetection, detect_and_crop_boats
 from colreg_vision.detectors.infrared import InfraredDetection, detect_infrared_objects
 
@@ -35,63 +40,6 @@ def expand_bbox(
     exp_x2 = int(min(image_shape[1], cx + new_w_right / 2))
     exp_y2 = int(min(image_shape[0], cy + new_h_bottom / 2))
     return [exp_x1, exp_y1, exp_x2, exp_y2]
-
-
-@dataclass
-class BoatAnalysisResult:
-    boat_id: int
-    crop: np.ndarray
-    bbox: List[int]
-    detection_confidence: float
-    vessel_type: str = "MECH"
-    vessel_type_confidence: float = 0.0
-    day_shapes_status: Optional[VesselTypeResult] = None
-    lights_status: Optional[LightsVesselTypeResult] = None
-    infrared_detections: List[InfraredDetection] = field(default_factory=list)
-
-    @property
-    def final_vessel_type(self) -> str:
-        if self.day_shapes_status and self.day_shapes_status.is_known_signal:
-            return self.day_shapes_status.vessel_type
-        if self.lights_status and self.lights_status.is_known_signal:
-            return self.lights_status.vessel_type
-        return self.vessel_type
-
-    @property
-    def final_vessel_type_confidence(self) -> float:
-        if self.day_shapes_status and self.day_shapes_status.is_known_signal:
-            return self.day_shapes_status.confidence * 100.0
-        if self.lights_status and self.lights_status.is_known_signal:
-            return self.lights_status.confidence * 100.0
-        return self.vessel_type_confidence
-
-
-@dataclass
-class PipelineResult:
-    image: np.ndarray
-    is_night: bool
-    boats: List[BoatAnalysisResult] = field(default_factory=list)
-    infrared_detections: List[InfraredDetection] = field(default_factory=list)
-    day_shapes_statuses: List[VesselTypeResult] = field(default_factory=list)
-    lights_statuses: List[LightsVesselTypeResult] = field(default_factory=list)
-
-    @property
-    def boat_count(self) -> int:
-        return len(self.boats)
-
-    @property
-    def sailboat_count(self) -> int:
-        from colreg_vision.core.types import VesselType
-
-        return sum((1 for b in self.boats if b.vessel_type == VesselType.SAIL))
-
-    @property
-    def mechanical_count(self) -> int:
-        from colreg_vision.core.types import VesselType
-
-        return sum(
-            (1 for b in self.boats if b.final_vessel_type == VesselType.MECHANICAL)
-        )
 
 
 class VideoAnalyticsPipeline:

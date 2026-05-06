@@ -7,7 +7,7 @@ import numpy as np
 from ultralytics import YOLO
 
 from colreg_vision.core.config import Config
-from colreg_vision.core.types import VesselType
+from colreg_vision.core.types import SignalResult, VesselType
 
 
 @dataclass
@@ -18,25 +18,6 @@ class LightDetection:
     center_x: float
     center_y: float
     confidence: float
-
-
-@dataclass
-class VesselTypeResult:
-    vessel_type: str
-    bbox: List[int]
-    color: Tuple[int, int, int]
-    lights: List[LightDetection]
-    sequence: List[int]
-
-    @property
-    def is_known_signal(self) -> bool:
-        return self.vessel_type not in ["Unknown", "Неизвестный сигнал"]
-
-    @property
-    def confidence(self) -> float:
-        if not self.lights:
-            return 0.0
-        return sum((light.confidence for light in self.lights)) / len(self.lights)
 
 
 LIGHTS_RULES = {
@@ -101,7 +82,7 @@ def _group_by_mast(
 
 def _classify_group(
     group: List[LightDetection], rules: dict = LIGHTS_RULES
-) -> VesselTypeResult:
+) -> SignalResult:
     sequence = [d.class_id for d in group]
     vessel_type = "Unknown"
     color = (0, 0, 255)
@@ -114,11 +95,11 @@ def _classify_group(
     y1_min = min((d.bbox[1] for d in group))
     x2_max = max((d.bbox[2] for d in group))
     y2_max = max((d.bbox[3] for d in group))
-    return VesselTypeResult(
+    return SignalResult(
         vessel_type=vessel_type,
         bbox=[x1_min, y1_min, x2_max, y2_max],
         color=color,
-        lights=group,
+        signals=group,
         sequence=sequence,
     )
 
@@ -131,7 +112,7 @@ def classify_lights(
     x_tolerance: Optional[int] = None,
     return_detections: bool = False,
     model: Optional[YOLO] = None,
-) -> Union[List[VesselTypeResult], Tuple[List[VesselTypeResult], List[LightDetection]]]:
+) -> Union[List[SignalResult], Tuple[List[SignalResult], List[LightDetection]]]:
     if config is None:
         config = Config()
     if model_path is None:
