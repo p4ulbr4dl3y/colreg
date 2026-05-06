@@ -26,10 +26,7 @@
 
 ### Настройка окружения
 ```bash
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-pip install -e .
+uv sync
 ```
 
 ---
@@ -40,14 +37,13 @@ pip install -e .
 
 ### Запуск MQTT брокера (для локальной разработки)
 ```bash
-amqtt -c amqtt.yaml &
+amqtt -c scripts/amqtt.yaml &
 ```
 
 ### Запуск модуля технического зрения
 Узел инициализирует модели и подключается к указанному MQTT-брокеру:
 ```bash
-pip install -e .
-python scripts/mqtt_node.py
+uv run scripts/mqtt_node.py
 ```
 
 ### Протокол связи
@@ -82,7 +78,7 @@ python scripts/mqtt_node.py
 }
 ```
 
-*Для локального тестирования интеграции запустите `python scripts/mqtt_simulate.py` при активном узле `scripts/mqtt_node.py`.*
+*Для локального тестирования интеграции запустите `uv run scripts/mqtt_simulate.py` при активном узле `scripts/mqtt_node.py`.*
 
 ---
 
@@ -120,29 +116,34 @@ result = pipeline.process_night(ir_image, visible_image)
 ├── src/                          # Исходный код пакета
 │   └── colreg_vision/
 │       ├── __init__.py           
-│       ├── core/                 # Базовые вещи
+│       ├── core/                 # Базовые компоненты
 │       │   ├── config.py
 │       │   └── types.py          # Общие типы
-│       ├── detectors/            # Все, что ищет объекты
-│       │   ├── boat.py           # Обнаружение судов (YOLO)
+│       ├── detectors/            # Модули обнаружения объектов
+│       │   ├── boat.py           # Обнаружение судов
 │       │   └── infrared.py       
-│       ├── classifiers/          # Все, что классифицирует
+│       ├── classifiers/          # Модули классификации
 │       │   ├── binary.py         # Бинарная классификация
-│       │   ├── day_shapes.py     # Дневные фигуры МППСС
-│       │   └── lights.py         # Навигационные огни МППСС
+│       │   ├── day_shapes.py     # Дневные фигуры
+│       │   └── lights.py         # Навигационные огни
 │       └── pipeline.py           # Основной оркестратор
 │
 ├── scripts/                      # Скрипты запуска и интеграции
 │   ├── mqtt_node.py              
-│   └── mqtt_simulate.py          
+│   ├── mqtt_simulate.py          
+│   └── amqtt.yaml                # Конфигурация брокера
 │
-├── tests/                        # Набор автоматизированных тестов (Pytest)
-│   └── test_pipeline.py
+├── tests/                        # Набор автоматизированных тестов
+│   ├── integration/              # Интеграционные тесты на изображениях
+│   └── test_pipeline.py          # Модульные тесты пайплайна
 │
-├── models/                       # Предобученные веса моделей (.pt / .pth)
-│   └── unused/                   # Устаревшие/неиспользуемые модели
+├── tools/                        # Вспомогательные инструменты
+│   └── debug_perf.py             # Замер производительности
+│
+├── models/                       # Предобученные веса моделей
+│   └── unused/                   # Устаревшие модели
 ├── test_images/                  # Данные для тестов
-├── requirements.txt
+├── pyproject.toml                # Конфигурация проекта и зависимости
 └── README.md
 ```
 
@@ -154,5 +155,5 @@ result = pipeline.process_night(ir_image, visible_image)
 
 ```bash
 # Запуск всех тестов
-pytest tests/test_pipeline.py -v
+uv run pytest -v
 ```

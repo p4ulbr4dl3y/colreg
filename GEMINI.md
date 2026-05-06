@@ -47,14 +47,16 @@ The system operates as an asynchronous service.
 ### Model & Data Management
 - **Models**: Production models are stored in `models/`. Legacy or experimental models belong in `models/unused/`.
 - **Test Images**: Use `test_images/day/` and `test_images/night/` for manual and automated verification.
-- **Datasets**: `data/` directory contains raw and validated datasets. Do not commit large binary data files to the repository.
+- **Dependencies**: Managed via `pyproject.toml` and `uv.lock`. Do not use `requirements.txt`.
 
 ### Testing Protocol
-- **Empirical Validation**: Any change to classification logic MUST be verified against the existing test suite (`pytest tests/test_pipeline.py`).
+- **Empirical Validation**: Any change to classification logic MUST be verified against the existing test suite (`uv run pytest`).
 - **Mode Coverage**: Ensure changes are tested for both `is_night=True` and `is_night=False` scenarios.
+- **Integration Tests**: Complex image-based tests live in `tests/integration/`.
 
 ### MQTT Integration
 - When modifying `scripts/mqtt_node.py`, verify compatibility with the `amqtt` broker and ensure the JSON schema matches the protocol defined in `README.md`.
+- Use `scripts/amqtt.yaml` for broker configuration.
 - Use `scripts/mqtt_simulate.py` for integration testing.
 
 ---
