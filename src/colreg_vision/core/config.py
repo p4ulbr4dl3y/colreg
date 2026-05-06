@@ -5,12 +5,41 @@ from typing import Dict, List, Optional
 
 @dataclass
 class ModelConfig:
+    """Конфигурация отдельной модели нейронной сети.
+
+    Атрибуты:
+        path: путь к файлу модели относительно базовой директории;
+        confidence_threshold: порог уверенности для детекции или классификации.
+    """
     path: str
     confidence_threshold: float = 0.5
 
 
 @dataclass
 class Config:
+    """Глобальная конфигурация системы видеоаналитики.
+
+    Содержит пути к моделям, настройки классификаторов и параметры обработки изображений.
+
+    Атрибуты:
+        base_dir: корневая директория проекта;
+        boat_detector: параметры модели детекции судов;
+        binary_classifier: параметры модели классификации типа судна;
+        infrared_detector: параметры модели детекции в инфракрасном диапазоне;
+        day_shapes: параметры модели распознавания дневных фигур;
+        lights: параметры модели распознавания навигационных огней;
+        day_shapes_classes: словарь соответствия идентификаторов и названий дневных фигур;
+        lights_classes: словарь соответствия идентификаторов и цветов огней;
+        binary_classifier_classes: список классов бинарного классификатора;
+        boat_class_id: идентификатор класса судна в основной модели детекции;
+        grouping_x_tolerance: допуск по оси X для группировки объектов;
+        classifier_image_size: размер изображения для подачи в классификатор;
+        classifier_normalize_mean: средние значения для нормализации изображения;
+        classifier_normalize_std: стандартные отклонения для нормализации изображения;
+        device: вычислительное устройство;
+        use_tracker: флаг использования трекера объектов;
+        tracker_type: тип используемого трекера.
+    """
     base_dir: Path = field(
         default_factory=lambda: Path(__file__).resolve().parent.parent.parent.parent
     )
@@ -68,6 +97,17 @@ class Config:
     tracker_type: str = "botsort.yaml"
 
     def get_model_path(self, model_name: str) -> Path:
+        """Возвращает абсолютный путь к файлу модели.
+
+        Аргументы:
+            model_name: название атрибута конфигурации модели.
+
+        Возвращает:
+            Абсолютный путь к файлу модели.
+
+        Исключения:
+            ValueError: если указано неизвестное название модели.
+        """
         model_config = getattr(self, model_name)
         if isinstance(model_config, ModelConfig):
             return self.base_dir / model_config.path
