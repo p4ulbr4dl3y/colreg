@@ -10,6 +10,16 @@ from colreg_vision.core.config import Config
 
 @dataclass
 class InfraredDetection:
+    """
+    Данные обнаруженного объекта в инфракрасном спектре.
+
+    Атрибуты:
+    - bbox: координаты ограничивающей рамки в формате [x1, y1, x2, y2];
+    - confidence: уровень уверенности модели при обнаружении;
+    - class_id: идентификатор класса объекта;
+    - class_name: наименование класса объекта;
+    - track_id: идентификатор трека объекта.
+    """
     bbox: List[int]
     confidence: float
     class_id: int
@@ -18,18 +28,22 @@ class InfraredDetection:
 
     @property
     def center_x(self) -> float:
+        """Возвращает координату X центра рамки."""
         return (self.bbox[0] + self.bbox[2]) / 2
 
     @property
     def center_y(self) -> float:
+        """Возвращает координату Y центра рамки."""
         return (self.bbox[1] + self.bbox[3]) / 2
 
     @property
     def width(self) -> int:
+        """Возвращает ширину рамки объекта в пикселях."""
         return self.bbox[2] - self.bbox[0]
 
     @property
     def height(self) -> int:
+        """Возвращает высоту рамки объекта в пикселях."""
         return self.bbox[3] - self.bbox[1]
 
 
@@ -42,6 +56,21 @@ def detect_infrared_objects(
     model: Optional[YOLO] = None,
     use_tracker: bool = False,
 ) -> List[InfraredDetection]:
+    """
+    Выполняет обнаружение объектов на инфракрасном изображении.
+
+    Аргументы:
+    - image: входное изображение или путь к нему;
+    - config: объект конфигурации системы;
+    - confidence_threshold: порог уверенности для фильтрации обнаружений;
+    - model_path: путь к весам модели обнаружения;
+    - class_filter: список разрешенных идентификаторов классов для фильтрации;
+    - model: предобученная модель;
+    - use_tracker: флаг использования трекера объектов.
+
+    Возвращает:
+    - список объектов InfraredDetection с результатами обнаружения.
+    """
     if config is None:
         config = Config()
     if model_path is None:

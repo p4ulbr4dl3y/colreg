@@ -10,6 +10,15 @@ from colreg_vision.core.config import Config
 
 @dataclass
 class BoatDetection:
+    """
+    Данные обнаруженного судна.
+
+    Атрибуты:
+    - crop: изображение с вырезанным объектом судна;
+    - bbox: координаты ограничивающей рамки в формате [x1, y1, x2, y2];
+    - confidence: уровень уверенности модели при обнаружении;
+    - crop_id: уникальный идентификатор судна для отслеживания.
+    """
     crop: np.ndarray
     bbox: List[int]
     confidence: float
@@ -17,10 +26,12 @@ class BoatDetection:
 
     @property
     def width(self) -> int:
+        """Возвращает ширину рамки судна в пикселях."""
         return self.crop.shape[1]
 
     @property
     def height(self) -> int:
+        """Возвращает высоту рамки судна в пикселях."""
         return self.crop.shape[0]
 
 
@@ -33,6 +44,21 @@ def detect_and_crop_boats(
     model: Optional[YOLO] = None,
     use_tracker: bool = False,
 ) -> List[BoatDetection]:
+    """
+    Выполняет обнаружение судов на изображении и возвращает список обрезанных областей.
+
+    Аргументы:
+    - image: входное изображение или путь к нему;
+    - config: объект конфигурации системы;
+    - confidence_threshold: порог уверенности для фильтрации обнаружений;
+    - class_id: идентификатор целевого класса для фильтрации;
+    - model_path: путь к весам модели обнаружения;
+    - model: предобученная модель;
+    - use_tracker: флаг использования трекера объектов.
+
+    Возвращает:
+    - список объектов BoatDetection с найденными судами.
+    """
     if config is None:
         config = Config()
     if model_path is None:
