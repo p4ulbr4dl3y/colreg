@@ -1,11 +1,14 @@
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
+
 import cv2
 import numpy as np
 from ultralytics import YOLO
+
 from colreg_vision.core.config import Config
 from colreg_vision.core.types import VesselType
+
 
 @dataclass
 class LightDetection:
@@ -15,6 +18,7 @@ class LightDetection:
     center_x: float
     center_y: float
     confidence: float
+
 
 @dataclass
 class VesselTypeResult:
@@ -26,16 +30,45 @@ class VesselTypeResult:
 
     @property
     def is_known_signal(self) -> bool:
-        return self.vessel_type not in ['Unknown', 'Неизвестный сигнал']
+        return self.vessel_type not in ["Unknown", "Неизвестный сигнал"]
 
     @property
     def confidence(self) -> float:
         if not self.lights:
             return 0.0
         return sum((light.confidence for light in self.lights)) / len(self.lights)
-LIGHTS_RULES = {VesselType.NUC: {'sequence': [1, 1], 'color': (0, 0, 255), 'description': 'Не может управляться - 2 красных огня'}, VesselType.RAM: {'sequence': [1, 0, 1], 'color': (170, 255, 170), 'description': 'Ограничено в возможности маневрировать - красный-белый-красный'}, VesselType.FISHING: {'sequence': [1, 0], 'color': (0, 255, 255), 'description': 'Занято ловом рыбы - красный-белый'}, VesselType.CBD: {'sequence': [1, 1, 1], 'color': (0, 165, 255), 'description': 'Стеснено своей осадкой - 3 красных огня'}}
 
-def _group_by_mast(detections: List[LightDetection], x_tolerance: int=40, max_y_gap_factor: float=4.0, max_area_ratio: float=4.0) -> List[List[LightDetection]]:
+
+LIGHTS_RULES = {
+    VesselType.NUC: {
+        "sequence": [1, 1],
+        "color": (0, 0, 255),
+        "description": "Не может управляться - 2 красных огня",
+    },
+    VesselType.RAM: {
+        "sequence": [1, 0, 1],
+        "color": (170, 255, 170),
+        "description": "Ограничено в возможности маневрировать - красный-белый-красный",
+    },
+    VesselType.FISHING: {
+        "sequence": [1, 0],
+        "color": (0, 255, 255),
+        "description": "Занято ловом рыбы - красный-белый",
+    },
+    VesselType.CBD: {
+        "sequence": [1, 1, 1],
+        "color": (0, 165, 255),
+        "description": "Стеснено своей осадкой - 3 красных огня",
+    },
+}
+
+
+def _group_by_mast(
+    detections: List[LightDetection],
+    x_tolerance: int = 40,
+    max_y_gap_factor: float = 4.0,
+    max_area_ratio: float = 4.0,
+) -> List[List[LightDetection]]:
     if not detections:
         return []
     sorted_detections = sorted(detections, key=lambda x: x.center_y)
@@ -47,6 +80,7 @@ def _group_by_mast(detections: List[LightDetection], x_tolerance: int=40, max_y_
 
     def get_height(d: LightDetection) -> float:
         return d.bbox[3] - d.bbox[1]
+
     for i in range(1, len(sorted_detections)):
         prev = current_group[-1]
         curr = sorted_detections[i]
@@ -64,26 +98,44 @@ def _group_by_mast(detections: List[LightDetection], x_tolerance: int=40, max_y_
     groups.append(current_group)
     return groups
 
-def _classify_group(group: List[LightDetection], rules: dict=LIGHTS_RULES) -> VesselTypeResult:
+
+def _classify_group(
+    group: List[LightDetection], rules: dict = LIGHTS_RULES
+) -> VesselTypeResult:
     sequence = [d.class_id for d in group]
-    vessel_type = 'Unknown'
+    vessel_type = "Unknown"
     color = (0, 0, 255)
-    for (vtype, rule) in rules.items():
-        if sequence == rule['sequence']:
+    for vtype, rule in rules.items():
+        if sequence == rule["sequence"]:
             vessel_type = vtype
-            color = rule['color']
+            color = rule["color"]
             break
     x1_min = min((d.bbox[0] for d in group))
     y1_min = min((d.bbox[1] for d in group))
     x2_max = max((d.bbox[2] for d in group))
     y2_max = max((d.bbox[3] for d in group))
-    return VesselTypeResult(vessel_type=vessel_type, bbox=[x1_min, y1_min, x2_max, y2_max], color=color, lights=group, sequence=sequence)
+    return VesselTypeResult(
+        vessel_type=vessel_type,
+        bbox=[x1_min, y1_min, x2_max, y2_max],
+        color=color,
+        lights=group,
+        sequence=sequence,
+    )
 
-def classify_lights(image: Union[str, Path, np.ndarray], config: Optional[Config]=None, confidence_threshold: Optional[float]=None, model_path: Optional[Union[str, Path]]=None, x_tolerance: Optional[int]=None, return_detections: bool=False, model: Optional[YOLO]=None) -> Union[List[VesselTypeResult], Tuple[List[VesselTypeResult], List[LightDetection]]]:
+
+def classify_lights(
+    image: Union[str, Path, np.ndarray],
+    config: Optional[Config] = None,
+    confidence_threshold: Optional[float] = None,
+    model_path: Optional[Union[str, Path]] = None,
+    x_tolerance: Optional[int] = None,
+    return_detections: bool = False,
+    model: Optional[YOLO] = None,
+) -> Union[List[VesselTypeResult], Tuple[List[VesselTypeResult], List[LightDetection]]]:
     if config is None:
         config = Config()
     if model_path is None:
-        model_path = config.get_model_path('lights')
+        model_path = config.get_model_path("lights")
     else:
         model_path = Path(model_path)
         if not model_path.is_absolute():
@@ -91,13 +143,18 @@ def classify_lights(image: Union[str, Path, np.ndarray], config: Optional[Config
     if isinstance(image, (str, Path)):
         image_cv = cv2.imread(str(image))
         if image_cv is None:
-            raise ValueError(f'Не удалось загрузить изображение: {image}')
+            raise ValueError(f"Не удалось загрузить изображение: {image}")
         image = image_cv
     elif not isinstance(image, np.ndarray):
-        raise TypeError('Изображение должно быть путём к файлу или numpy массивом')
+        raise TypeError("Изображение должно быть путём к файлу или numpy массивом")
     if model is None:
         model = YOLO(str(model_path))
-    results = model(image, conf=confidence_threshold or config.lights.confidence_threshold, device=config.device, verbose=False)
+    results = model(
+        image,
+        conf=confidence_threshold or config.lights.confidence_threshold,
+        device=config.device,
+        verbose=False,
+    )
     result = results[0]
     detections = []
     if result.boxes is not None:
@@ -106,7 +163,16 @@ def classify_lights(image: Union[str, Path, np.ndarray], config: Optional[Config
             class_id = int(boxes.cls[i])
             conf = float(boxes.conf[i])
             (x1, y1, x2, y2) = map(int, boxes.xyxy[i])
-            detections.append(LightDetection(class_id=class_id, class_name=config.lights_classes.get(class_id, f'class_{class_id}'), bbox=[x1, y1, x2, y2], center_x=(x1 + x2) / 2, center_y=(y1 + y2) / 2, confidence=conf))
+            detections.append(
+                LightDetection(
+                    class_id=class_id,
+                    class_name=config.lights_classes.get(class_id, f"class_{class_id}"),
+                    bbox=[x1, y1, x2, y2],
+                    center_x=(x1 + x2) / 2,
+                    center_y=(y1 + y2) / 2,
+                    confidence=conf,
+                )
+            )
     groups = _group_by_mast(detections, x_tolerance or config.grouping_x_tolerance)
     vessel_types = [_classify_group(group) for group in groups]
     if return_detections:

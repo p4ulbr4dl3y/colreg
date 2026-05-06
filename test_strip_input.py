@@ -1,5 +1,6 @@
 def foo():
-    print('Hello')
+    print("Hello")
+
 
 class MyClass:
     pass
