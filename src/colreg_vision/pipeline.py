@@ -26,6 +26,16 @@ def expand_bbox(
     image_shape: Tuple[int, ...],
     bbox_scale: Tuple[float, float, float, float],
 ) -> List[int]:
+    """Расширяет ограничивающую рамку на основе заданных коэффициентов масштабирования.
+
+    Аргументы:
+        bbox: исходные координаты рамки в формате [x1, y1, x2, y2].
+        image_shape: размеры изображения в формате (высота, ширина, ...).
+        bbox_scale: коэффициенты масштабирования для сторон [влево, вверх, вправо, вниз].
+
+    Возвращает:
+        список координат расширенной рамки [x1, y1, x2, y2].
+    """
     (x1, y1, x2, y2) = bbox
     cx = (x1 + x2) / 2
     cy = (y1 + y2) / 2
@@ -43,9 +53,24 @@ def expand_bbox(
 
 
 class VideoAnalyticsPipeline:
+    """Конвейер для видеоаналитики, реализующий иерархию приоритетов COLREG.
+
+    Класс управляет детекцией судов, классификацией их типа и анализом навигационных огней
+    или дневных фигур.
+
+    Атрибуты:
+        config: конфигурация приложения.
+    """
+
     def __init__(
         self, config: Optional[Config] = None, classifier_device: Optional[str] = None
     ):
+        """Инициализирует конвейер анализа.
+
+        Аргументы:
+            config: объект конфигурации; если не задан, используется стандартный.
+            classifier_device: устройство для работы классификатора.
+        """
         self.config = config or Config()
         self._classifier = None
         self._classifier_device = classifier_device
@@ -56,6 +81,7 @@ class VideoAnalyticsPipeline:
 
     @property
     def classifier(self) -> BinaryClassifier:
+        """Классификатор бинарного типа судна."""
         if self._classifier is None:
             self._classifier = BinaryClassifier(
                 config=self.config, device=self._classifier_device
@@ -64,12 +90,14 @@ class VideoAnalyticsPipeline:
 
     @property
     def boat_detector(self) -> YOLO:
+        """Модель обнаружения судов."""
         if self._boat_detector is None:
             self._boat_detector = YOLO(str(self.config.get_model_path("boat_detector")))
         return self._boat_detector
 
     @property
     def infrared_detector(self) -> YOLO:
+        """Модель обнаружения объектов в ИК-спектре."""
         if self._infrared_detector is None:
             self._infrared_detector = YOLO(
                 str(self.config.get_model_path("infrared_detector"))
@@ -78,12 +106,14 @@ class VideoAnalyticsPipeline:
 
     @property
     def day_shapes_model(self) -> YOLO:
+        """Модель классификации дневных сигнальных фигур."""
         if self._day_shapes_model is None:
             self._day_shapes_model = YOLO(str(self.config.get_model_path("day_shapes")))
         return self._day_shapes_model
 
     @property
     def lights_model(self) -> YOLO:
+        """Модель классификации навигационных огней."""
         if self._lights_model is None:
             self._lights_model = YOLO(str(self.config.get_model_path("lights")))
         return self._lights_model
@@ -97,6 +127,19 @@ class VideoAnalyticsPipeline:
         skip_classification: bool = False,
         bbox_scale: Tuple[float, float, float, float] = (1.0, 5.0, 1.0, 1.0),
     ) -> PipelineResult:
+        """Обрабатывает одно изображение согласно логике COLREG.
+
+        Аргументы:
+            image: путь к файлу или массив изображения.
+            is_night: флаг ночного режима.
+            boat_confidence: порог достоверности детектора.
+            classifier_confidence: порог достоверности классификатора.
+            skip_classification: пропустить классификацию.
+            bbox_scale: коэффициенты масштабирования рамки.
+
+        Возвращает:
+            результат анализа изображения.
+        """
         if isinstance(image, (str, Path)):
             image_cv = cv2.imread(str(image))
             if image_cv is None:
@@ -195,6 +238,20 @@ class VideoAnalyticsPipeline:
         bbox_offset: Tuple[int, int] = (0, 0),
         bbox_scale: Tuple[float, float, float, float] = (1.0, 5.0, 1.0, 1.0),
     ) -> PipelineResult:
+        """Обрабатывает пару ИК и видимого изображений в ночном режиме.
+
+        Аргументы:
+            ir_image: ИК-изображение.
+            visible_image: изображение в видимом спектре.
+            boat_confidence: порог достоверности детектора.
+            classifier_confidence: порог достоверности классификатора.
+            skip_classification: пропустить классификацию.
+            bbox_offset: смещение рамки.
+            bbox_scale: коэффициенты масштабирования рамки.
+
+        Возвращает:
+            результат анализа изображений.
+        """
         if isinstance(ir_image, (str, Path)):
             ir_cv = cv2.imread(str(ir_image))
             if ir_cv is None:
@@ -305,6 +362,17 @@ def draw_results(
     thickness: int = 2,
     font_scale: float = 0.6,
 ) -> np.ndarray:
+    """Отрисовывает результаты анализа на изображении.
+
+    Аргументы:
+        image: исходное изображение.
+        result: результаты анализа конвейера.
+        thickness: толщина линий рамки и текста.
+        font_scale: масштаб шрифта для подписей.
+
+    Возвращает:
+        изображение с отрисованными результатами.
+    """
     output = image.copy()
     for boat in result.boats:
         (x1, y1, x2, y2) = boat.bbox
