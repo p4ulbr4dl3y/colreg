@@ -1,4 +1,3 @@
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
@@ -14,11 +13,9 @@ from colreg_vision.core.types import (
     CLASS_COLORS,
     BoatAnalysisResult,
     PipelineResult,
-    SignalResult,
-    VesselType,
 )
 from colreg_vision.detectors.boat import BoatDetection, detect_and_crop_boats
-from colreg_vision.detectors.infrared import InfraredDetection, detect_infrared_objects
+from colreg_vision.detectors.infrared import detect_infrared_objects
 
 
 def expand_bbox(
