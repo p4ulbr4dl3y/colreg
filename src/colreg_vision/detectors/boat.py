@@ -10,8 +10,7 @@ from colreg_vision.core.config import Config
 
 @dataclass
 class BoatDetection:
-    """
-    Данные обнаруженного судна.
+    """Данные обнаруженного судна.
 
     Атрибуты:
     - crop: изображение с вырезанным объектом судна;
