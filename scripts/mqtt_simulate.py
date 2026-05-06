@@ -1,3 +1,9 @@
+"""Модуль симуляции работы системы для тестирования MQTT узла.
+
+Этот скрипт подключается к MQTT брокеру, отправляет тестовую команду
+на анализ изображения и ожидает получения результата в топике результатов.
+"""
+
 import json
 
 import paho.mqtt.client as mqtt
@@ -9,6 +15,11 @@ MQTT_TOPIC_RESULT = "colreg/vision/result"
 
 
 def on_connect(client, userdata, flags, reason_code, properties):
+    """Обработчик события подключения к MQTT брокеру.
+
+    При успешном подключении подписывается на топик результатов и
+    отправляет тестовую команду анализа.
+    """
     if reason_code == 0:
         print("Подключено к MQTT брокеру.")
         client.subscribe(MQTT_TOPIC_RESULT)
@@ -25,6 +36,10 @@ def on_connect(client, userdata, flags, reason_code, properties):
 
 
 def on_message(client, userdata, msg):
+    """Обработчик входящих сообщений (ответов нейросети).
+
+    Выводит полученные данные в консоль и отключается от брокера.
+    """
     print(f"\nПОЛУЧЕН ОТВЕТ ОТ НЕЙРОСЕТИ (Топик: {msg.topic})")
     try:
         payload = json.loads(msg.payload.decode("utf-8"))

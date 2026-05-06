@@ -1,3 +1,10 @@
+"""Модуль для запуска MQTT узла видеоаналитики.
+
+Этот модуль реализует асинхронный узел, который получает команды через MQTT,
+выполняет обработку изображений с помощью конвейера видеоаналитики и
+публикует результаты анализа в соответствующий топик.
+"""
+
 import json
 import logging
 import time
@@ -19,6 +26,16 @@ MQTT_TOPIC_RESULT = "colreg/vision/result"
 
 
 class VisionNode:
+    """Узел для обработки команд анализа видео через MQTT.
+
+    Класс управляет жизненным циклом конвейера видеоаналитики и обеспечивает
+    взаимодействие с MQTT брокером: подписку на команды и публикацию результатов.
+
+    Атрибуты:
+        pipeline: Экземпляр конвейера видеоаналитики.
+        client: Клиент для работы с MQTT брокером.
+    """
+
     def __init__(self):
         logger.info("Инициализация конвейера видеоаналитики...")
         self.pipeline = VideoAnalyticsPipeline()
@@ -40,6 +57,10 @@ class VisionNode:
         reason_code: int,
         properties: Any,
     ) -> None:
+        """Обработчик события успешного подключения к MQTT брокеру.
+
+        Оформляет подписку на топик команд после установки соединения.
+        """
         if reason_code == 0:
             logger.info(
                 f"Успешное подключение к MQTT брокеру на {MQTT_BROKER}:{MQTT_PORT}"
@@ -54,6 +75,10 @@ class VisionNode:
     def _on_message(
         self, client: mqtt.Client, userdata: Any, msg: mqtt.MQTTMessage
     ) -> None:
+        """Обработчик входящих сообщений MQTT.
+
+        Парсит JSON полезную нагрузку и вызывает соответствующий метод обработки.
+        """
         try:
             payload = json.loads(msg.payload.decode("utf-8"))
             logger.info(f"Получена команда: {payload}")
@@ -68,6 +93,11 @@ class VisionNode:
             logger.error(f"Ошибка при обработке сообщения: {e}")
 
     def _handle_analyze_command(self, payload: Dict[str, Any]) -> None:
+        """Обрабатывает команду анализа видео.
+
+        Загружает изображение, вызывает конвейер видеоаналитики и публикует
+        результат в топик результатов.
+        """
         request_id = payload.get("request_id", "unknown")
         source = payload.get("source")
         is_night = payload.get("is_night", False)
@@ -114,6 +144,7 @@ class VisionNode:
             self._publish_error(request_id, str(e))
 
     def _publish_error(self, request_id: str, error_message: str) -> None:
+        """Публикует сообщение об ошибке в топик результатов."""
         response = {
             "request_id": request_id,
             "status": "error",
@@ -122,6 +153,7 @@ class VisionNode:
         self.client.publish(MQTT_TOPIC_RESULT, json.dumps(response))
 
     def start(self):
+        """Запускает MQTT узел и переходит в цикл ожидания команд."""
         try:
             logger.info("Подключение к MQTT брокеру...")
             self.client.connect(MQTT_BROKER, MQTT_PORT, 60)
