@@ -1,3 +1,5 @@
+"""Классификатор навигационных огней для определения статуса судна по МППСС-72."""
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple, Union

@@ -1,3 +1,5 @@
+"""Конфигурация системы видеоаналитики: пути к моделям и параметры обработки."""
+
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -103,7 +105,7 @@ class Config:
             - model_name: название атрибута конфигурации модели.
 
         Возвращает:
-            Абсолютный путь к файлу модели.
+            абсолютный путь к файлу модели.
 
         Исключения:
             ValueError: если указано неизвестное название модели.

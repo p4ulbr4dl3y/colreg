@@ -1,3 +1,5 @@
+"""Бинарный классификатор судов: разделение на парусные и моторные по изображению."""
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Union

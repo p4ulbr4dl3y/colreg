@@ -1,0 +1,21 @@
+469a181249d503d1ab33cac8e076b83e1966341f chore: final cleanup - update gitignore, untrack egg-info, and add missing lapx dependency
+07af0ef41cd9dfb536b7b560fc78a9b208c5a0a1 Docs: Update documentation to reflect new repository structure and uv usage
+ae38c9b9325af8529e327a9e4309d32c87eea59a Docs: Add design and plan for code stripping and ruff setup
+0f63f24c2730e0636c1092d62b0bb63f1cfc3111 Docs: Add design for strip comments script
+281e94cc2ed478c64777e6ffc27c2e2717a03002 feat: implement DocstringRemover core logic
+3505ae23d9281ecfd1bf6f7b25c57ca1c54a55aa Docs: Add design for stripping comments and docstrings
+74705157d47e6af8372d86a5e3dbc4a682fce9c8 Chore: Strip all comments and docstrings from Python source files
+8ad6d2a931296d760e6ac92efe7483b2a284ba08 Chore: Configure and run ruff for linting and formatting
+c540a189527f5d11538df028222f3cbb09b5725d Chore: Remove temporary stripping test files
+8fd5553fd4197517419b16877684180a895ff3ce docs: добавить документацию для модулей ядра
+ff7894d963e273bc6d1bd3912b8a62a9453c072d docs: исправить оформление докстрингов в модулях ядра
+d8e878a4b7507c55f30db79b495961dea4a3e087 refactor: перенести типы в core и добавить документацию
+da22ba91db124a5e8127904c0daad6a1ac31ccc4 docs: привести оформление классификаторов к единому стандарту
+685bd4e183f1e990eb456d478b2a4ddf473bfb88 docs: добавить документацию для детекторов
+4a6f6c3ac11da110adab9a281af05d1af31b11d0 docs: добавить документацию для основного конвейера
+5d56ee3e93d15a19b3f00df0bbd97777c720c3ac docs: завершено оформление документации для скриптов и инструментов
+f343cb9c534550e7ef84860425b1e700af16ba7b docs: исправить оформление докстринга класса VisionNode
+8ffcd6f6fcddf1583ccda2eb5e0d19bf93618b03 docs: финальная правка оформления списков в детекторах
+1450f0751151e4546f499d31299d565cd0274d61 style: исправить ошибки импорта с помощью ruff
+08db4a24fae2b9f9c91815275a88ff74bc4fcbdf chore: исключить документацию из отслеживания git
+e0da21e35ef702b576ef5511b49b792e3e6fb0f6 chore: удалить документацию из репозитория

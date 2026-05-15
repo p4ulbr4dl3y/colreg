@@ -1,3 +1,5 @@
+"""Общие типы данных конвейера видеоаналитики: результаты детекции и классификации."""
+
 from dataclasses import dataclass, field
 from typing import Any, List, Optional, Tuple
 

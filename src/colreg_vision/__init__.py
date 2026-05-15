@@ -1,3 +1,5 @@
+"""Публичный API пакета colreg_vision для классификации морских судов по МППСС-72."""
+
 from colreg_vision.classifiers.binary import BinaryClassifier
 from colreg_vision.classifiers.day_shapes import classify_day_shapes
 from colreg_vision.classifiers.lights import classify_lights

@@ -1,3 +1,5 @@
+"""Детектор объектов в инфракрасном диапазоне на основе модели YOLO."""
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Union
@@ -10,8 +12,7 @@ from colreg_vision.core.config import Config
 
 @dataclass
 class InfraredDetection:
-    """
-    Данные обнаруженного объекта в инфракрасном спектре.
+    """Данные обнаруженного объекта в инфракрасном спектре.
 
     Атрибуты:
         - bbox: координаты ограничивающей рамки в формате [x1, y1, x2, y2];
@@ -57,8 +58,7 @@ def detect_infrared_objects(
     model: Optional[YOLO] = None,
     use_tracker: bool = False,
 ) -> List[InfraredDetection]:
-    """
-    Выполняет обнаружение объектов на инфракрасном изображении.
+    """Выполняет обнаружение объектов на инфракрасном изображении.
 
     Аргументы:
         - image: входное изображение или путь к нему;

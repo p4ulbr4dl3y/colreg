@@ -1,3 +1,5 @@
+"""Центральный конвейер видеоаналитики для классификации судов по иерархии МППСС-72."""
+
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
