@@ -74,39 +74,25 @@ class BinaryClassifier:
         self.transform = self._create_transform()
 
     def _load_model(self, model_path: Path) -> tuple:
-        """Загружает модель из указанного пути.
+        """Загружает модель EfficientNet-b0 из указанного пути.
 
         Аргументы:
             - model_path: путь к файлу модели.
 
         Возвращает:
-            кортеж из загруженной модели и списка имен классов.
+            кортеж из загруженной модели и списка имён классов.
         """
         checkpoint = torch.load(
             str(model_path), map_location=self.device, weights_only=False
         )
-        model_variants = {
-            "b0": models.efficientnet_b0,
-            "b1": models.efficientnet_b1,
-            "b2": models.efficientnet_b2,
-            "b3": models.efficientnet_b3,
-            "b4": models.efficientnet_b4,
-            "b5": models.efficientnet_b5,
-            "b6": models.efficientnet_b6,
-            "b7": models.efficientnet_b7,
-        }
-        if (
-            isinstance(checkpoint, (dict, torch.nn.modules.container.Sequential))
-            and "model_state_dict" not in checkpoint
-        ):
-            state_dict = checkpoint
-            version = "b0"
-            class_names = ["not_sailboat", "sailboat"]
+        if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
+            state_dict = checkpoint["model_state_dict"]
+            class_names = checkpoint.get("class_names", self.config.binary_classifier_classes)
         else:
-            state_dict = checkpoint.get("model_state_dict", checkpoint)
-            version = checkpoint.get("efficientnet_version", "b0")
-            class_names = checkpoint.get("class_names", ["not_sailboat", "sailboat"])
-        model = model_variants[version](weights=None)
+            # Старый формат: чекпоинт содержит state_dict напрямую
+            state_dict = checkpoint
+            class_names = self.config.binary_classifier_classes
+        model = models.efficientnet_b0(weights=None)
         num_features = model.classifier[1].in_features
         model.classifier = nn.Sequential(
             nn.Dropout(p=0.3, inplace=True), nn.Linear(num_features, len(class_names))
